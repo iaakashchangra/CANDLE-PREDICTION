@@ -1,0 +1,1450 @@
+{% extends "base.html" %}
+
+{% block title %}Candlestick Prediction Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dashboard-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        transition: transform 0.2s;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+    }
+    .metric-card.purple {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+    }
+    .prediction-card.pink {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+    }
+    .model-card.blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+    }
+    .accuracy-card.green {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+    }
+    .user-config-section {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+    .candle-green {
+        color: #00ff88;
+        font-weight: bold;
+    }
+    .candle-red {
+        color: #ff4757;
+        font-weight: bold;
+    }
+    .chart-container {
+        height: 400px;
+        margin: 15px 0;
+    }
+    .confusion-matrix {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+    }
+    .model-comparison {
+        height: 300px;
+    }
+    .technical-indicators {
+        height: 250px;
+    }
+    .user-item {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+        margin: 5px 0;
+        border-left: 4px solid #007bff;
+    }
+    .api-status {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    .api-active { background-color: #28a745; }
+    .api-inactive { background-color: #dc3545; }
+    .api-warning { background-color: #ffc107; }
+</style>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-chart-candlestick text-primary me-3"></i>
+                Candlestick Prediction Dashboard
+            </h1>
+            <p class="lead text-muted">Advanced ML-powered candlestick prediction with multi-user configuration</p>
+        </div>
+    </div>
+
+    <!-- User Configuration Section -->
+    <div class="user-config-section">
+        <h3 class="text-white mb-4"><i class="fas fa-users-cog me-2"></i>Multi-User Configuration</h3>
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <label class="form-label text-white"><i class="fas fa-users me-1"></i>Number of Users</label>
+                <input type="number" class="form-control" id="numberOfUsers" min="1" max="100" value="5" onchange="updateUserList()">
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label text-white"><i class="fas fa-building me-1"></i>Default Company</label>
+                <select class="form-select" id="defaultCompany">
+                    <option value="AAPL">Apple (AAPL)</option>
+                    <option value="MSFT">Microsoft (MSFT)</option>
+                    <option value="GOOGL">Google (GOOGL)</option>
+                    <option value="AMZN">Amazon (AMZN)</option>
+                    <option value="TSLA">Tesla (TSLA)</option>
+                    <option value="META">Meta (META)</option>
+                    <option value="NVDA">NVIDIA (NVDA)</option>
+                    <option value="NFLX">Netflix (NFLX)</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label text-white"><i class="fas fa-clock me-1"></i>Default Timeframe</label>
+                <select class="form-select" id="defaultTimeframe">
+                    <option value="1m">1 Minute</option>
+                    <option value="5m">5 Minutes</option>
+                    <option value="15m">15 Minutes</option>
+                    <option value="30m">30 Minutes</option>
+                    <option value="1h" selected>1 Hour</option>
+                    <option value="4h">4 Hours</option>
+                    <option value="1d">1 Day</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label text-white"><i class="fas fa-brain me-1"></i>Default Model</label>
+                <select class="form-select" id="defaultModel">
+                    <option value="lstm" selected>LSTM</option>
+                    <option value="cnn">CNN</option>
+                    <option value="rnn">RNN</option>
+                    <option value="hybrid">Hybrid (LSTM+CNN+RNN)</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label text-white"><i class="fas fa-list-ol me-1"></i>Candles to Predict</label>
+                <input type="number" class="form-control" id="candlesToPredict" min="1" max="50" value="10">
+            </div>
+            <div class="col-md-6 mb-3 d-flex align-items-end">
+                <button class="btn btn-light me-2" onclick="generateUserConfigs()"><i class="fas fa-cog me-1"></i>Generate Configs</button>
+                <button class="btn btn-success" onclick="startPredictions()"><i class="fas fa-play me-1"></i>Start Predictions</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Status Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plug me-2"></i>API Data Sources Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="api-status api-active"></div>
+                            <strong>Yahoo Finance</strong>
+                            <p class="text-muted mb-0">Primary source - Active</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="api-status api-warning"></div>
+                            <strong>Alpha Vantage</strong>
+                            <p class="text-muted mb-0">Secondary source - Limited</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="api-status api-active"></div>
+                            <strong>Polygon.io</strong>
+                            <p class="text-muted mb-0">Backup source - Active</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="metric-card purple">
+                <i class="fas fa-users fa-2x mb-3"></i>
+                <h3 id="activeUsers">0</h3>
+                <p class="mb-0">Active Users</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="prediction-card pink">
+                <i class="fas fa-chart-candlestick fa-2x mb-3"></i>
+                <h3 id="totalPredictions">0</h3>
+                <p class="mb-0">Total Predictions</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="model-card blue">
+                <i class="fas fa-brain fa-2x mb-3"></i>
+                <h3 id="activeModels">4</h3>
+                <p class="mb-0">ML Models</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="accuracy-card green">
+                <i class="fas fa-percentage fa-2x mb-3"></i>
+                <h3 id="avgAccuracy">0.00%</h3>
+                <p class="mb-0">Avg Accuracy</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- User List and Configurations -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>User Configurations</h5>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <div id="userConfigList">
+                        <!-- User configurations will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Model Performance Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div id="modelPerformanceChart" class="model-comparison"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live and Predicted Charts Section -->
+    <div class="row mb-4">
+        <!-- Live Candlestick Chart -->
+        <div class="col-12 mb-4">
+            <div class="dashboard-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-candlestick me-2"></i>Live Market Data</h5>
+                    <div>
+                        <select class="form-select form-select-sm d-inline-block" id="liveChartCompany" style="width: auto;">
+                            <option value="AAPL">AAPL</option>
+                            <option value="MSFT">MSFT</option>
+                            <option value="GOOGL">GOOGL</option>
+                            <option value="TSLA">TSLA</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary ms-2" onclick="refreshLiveChart()"><i class="fas fa-sync"></i></button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="liveCandlestickChart" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Predicted Candlestick Chart -->
+        <div class="col-12">
+            <div class="dashboard-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Predicted Market Data</h5>
+                    <div>
+                        <select class="form-select form-select-sm d-inline-block" id="predictionChartCompany" style="width: auto;">
+                            <option value="AAPL">AAPL</option>
+                            <option value="MSFT">MSFT</option>
+                            <option value="GOOGL">GOOGL</option>
+                            <option value="TSLA">TSLA</option>
+                        </select>
+                        <button class="btn btn-sm btn-success ms-2" onclick="refreshPredictionChart()"><i class="fas fa-sync"></i></button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="predictedCandlestickChart" class="chart-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technical Indicators and Confusion Matrix -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Technical Indicators</h5>
+                </div>
+                <div class="card-body">
+                    <div id="technicalIndicators" class="technical-indicators"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-table me-2"></i>Confusion Matrix</h5>
+                </div>
+                <div class="card-body">
+                    <div id="confusionMatrix" class="confusion-matrix text-center">
+                        <div class="row">
+                            <div class="col-6">
+                                <h6>Predicted vs Actual</h6>
+                                <table class="table table-bordered table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th></th>
+                                            <th class="candle-green">Bullish</th>
+                                            <th class="candle-red">Bearish</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <th class="candle-green">Bullish</th>
+                                            <td id="tp">0</td>
+                                            <td id="fp">0</td>
+                                        </tr>
+                                        <tr>
+                                            <th class="candle-red">Bearish</th>
+                                            <td id="fn">0</td>
+                                            <td id="tn">0</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="col-6">
+                                <h6>Accuracy Metrics</h6>
+                                <p><strong>Accuracy:</strong> <span id="accuracy">0.00%</span></p>
+                                <p><strong>Precision:</strong> <span id="precision">0.00%</span></p>
+                                <p><strong>Recall:</strong> <span id="recall">0.00%</span></p>
+                                <p><strong>F1-Score:</strong> <span id="f1Score">0.00%</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Comparison and Recent Predictions -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Model Comparison Graph</h5>
+                </div>
+                <div class="card-body">
+                    <div id="modelComparisonChart" class="model-comparison"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Predictions</h5>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                    <div id="recentPredictions">
+                        <!-- Recent predictions will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prediction Results Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-table me-2"></i>Prediction Results</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="predictionsTable">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Company</th>
+                                    <th>Timeframe</th>
+                                    <th>Model</th>
+                                    <th>Predicted Candles</th>
+                                    <th>Accuracy</th>
+                                    <th>Timestamp</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="predictionsTableBody">
+                                <!-- Prediction results will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let userConfigs = [];
+let predictionResults = [];
+let currentChart = null;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    updateUserList();
+    initializeCharts();
+    loadSampleData();
+});
+
+// Update user list based on number of users
+function updateUserList() {
+    const numberOfUsers = parseInt(document.getElementById('numberOfUsers').value);
+    const userConfigList = document.getElementById('userConfigList');
+    
+    userConfigList.innerHTML = '';
+    userConfigs = [];
+    
+    for (let i = 1; i <= numberOfUsers; i++) {
+        const userConfig = {
+            id: i,
+            name: `User ${i}`,
+            company: document.getElementById('defaultCompany').value,
+            timeframe: document.getElementById('defaultTimeframe').value,
+            model: document.getElementById('defaultModel').value,
+            candles: parseInt(document.getElementById('candlesToPredict').value)
+        };
+        
+        userConfigs.push(userConfig);
+        
+        const userItem = document.createElement('div');
+        userItem.className = 'user-item';
+        userItem.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>${userConfig.name}</strong><br>
+                    <small class="text-muted">${userConfig.company} | ${userConfig.timeframe} | ${userConfig.model} | ${userConfig.candles} candles</small>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editUser(${i})" title="Edit Configuration">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="generateSinglePrediction(${i})" title="Generate Prediction">
+                        <i class="fas fa-play"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        userConfigList.appendChild(userItem);
+    }
+    
+    document.getElementById('activeUsers').textContent = numberOfUsers;
+}
+
+// Generate user configurations
+function generateUserConfigs() {
+    const companies = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX'];
+    const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
+    const models = ['lstm', 'cnn', 'rnn', 'hybrid'];
+    
+    userConfigs.forEach(config => {
+        config.company = companies[Math.floor(Math.random() * companies.length)];
+        config.timeframe = timeframes[Math.floor(Math.random() * timeframes.length)];
+        config.model = models[Math.floor(Math.random() * models.length)];
+        config.candles = Math.floor(Math.random() * 20) + 5; // 5-25 candles
+    });
+    
+    updateUserList();
+    showToast('User configurations generated successfully!', 'success');
+}
+
+// Start predictions for all users
+function startPredictions() {
+    if (userConfigs.length === 0) {
+        showToast('Please configure users first!', 'warning');
+        return;
+    }
+    
+    showToast('Starting predictions for all users...', 'info');
+    
+    // Call the batch prediction API
+    fetch('/api/predictions/batch', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            user_configs: userConfigs
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Process successful predictions
+            data.results.forEach(result => {
+                if (result.success) {
+                    const prediction = {
+                        userId: result.user_name.split(' ')[1] || 1,
+                        userName: result.user_name,
+                        company: result.symbol,
+                        timeframe: result.timeframe,
+                        model: result.model,
+                        candlesRequested: result.predicted_candles.length,
+                        predictedCandles: result.predicted_candles,
+                        accuracy: result.accuracy,
+                        timestamp: new Date(result.timestamp).toLocaleString()
+                    };
+                    
+                    predictionResults.push(prediction);
+                    showToast(`Prediction completed for ${result.user_name}`, 'success');
+                } else {
+                    // Handle specific error messages
+                    let errorMessage = result.error || 'Failed to generate prediction';
+                    
+                    // Format user-friendly error message
+                    if (errorMessage.includes('not found') || errorMessage.includes('invalid symbol')) {
+                        errorMessage = `Symbol not found or invalid. Please verify the symbol is correct (e.g., AAPL for Apple).`;
+                    } else if (errorMessage.includes('rate limit') || errorMessage.includes('Too Many Requests')) {
+                        errorMessage = 'API rate limits exceeded. Please try again in a few minutes.';
+                    } else if (errorMessage.includes('insufficient data') || errorMessage.includes('Limited data available')) {
+                        errorMessage = `Insufficient data available. Try a longer time period or different timeframe.`;
+                    }
+                    
+                    // Show detailed error with suggestions if available
+                    let toastMessage = `Prediction failed for ${result.user_name}: ${errorMessage}`;
+                    if (result.suggestions && result.suggestions.length > 0) {
+                        toastMessage += '\n\nSuggestions:\n• ' + result.suggestions.join('\n• ');
+                    }
+                    
+                    showToast(toastMessage, 'danger', 8000);
+                }
+            });
+            
+            updatePredictionsTable();
+            updateStats();
+            updateCharts();
+        } else {
+            // Handle specific error messages
+            let errorMessage = data.error || 'Failed to generate batch predictions';
+            
+            // Format user-friendly error message
+            if (errorMessage.includes('not found') || errorMessage.includes('invalid symbol')) {
+                errorMessage = 'One or more symbols not found or invalid. Please verify symbols are correct (e.g., AAPL for Apple).';
+            } else if (errorMessage.includes('rate limit') || errorMessage.includes('Too Many Requests')) {
+                errorMessage = 'API rate limits exceeded. Please try again in a few minutes.';
+            } else if (errorMessage.includes('insufficient data') || errorMessage.includes('Limited data available')) {
+                errorMessage = 'Insufficient data available for one or more symbols. Try longer time periods or different timeframes.';
+            }
+            
+            // Show detailed error with suggestions if available
+            let batchToastMessage = `Batch prediction failed: ${errorMessage}`;
+            if (data.suggestions && data.suggestions.length > 0) {
+                batchToastMessage += '\n\nSuggestions:\n• ' + data.suggestions.join('\n• ');
+            }
+            
+            showToast(batchToastMessage, 'danger', 8000);
+            
+            // Display error in the predictions container
+            document.getElementById('predictionResults').innerHTML = `
+                <div class="alert alert-danger text-center p-4 m-3">
+                    <h4><i class="fas fa-exclamation-triangle me-2"></i>Batch Prediction Error</h4>
+                    <p>${errorMessage}</p>
+                    <small>Try different symbols, timeframes, or prediction parameters</small>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const errorMessage = error.message || 'Failed to generate predictions. Please try again.';
+        showToast(errorMessage, 'danger', 5000);
+        
+        // Display error in the predictions container
+        document.getElementById('predictionResults').innerHTML = `
+            <div class="alert alert-danger text-center p-4 m-3">
+                <h4><i class="fas fa-exclamation-triangle me-2"></i>Connection Error</h4>
+                <p>${errorMessage}</p>
+                <small>Check your network connection and try again</small>
+            </div>
+        `;
+    });
+}
+
+// Generate prediction for a specific user
+function generatePredictionForUser(userConfig) {
+    // Simulate API call and prediction generation
+    const prediction = {
+        userId: userConfig.id,
+        userName: userConfig.name,
+        company: userConfig.company,
+        timeframe: userConfig.timeframe,
+        model: userConfig.model,
+        candlesRequested: userConfig.candles,
+        predictedCandles: generateMockCandles(userConfig.candles),
+        accuracy: (Math.random() * 30 + 70).toFixed(2), // 70-100% accuracy
+        timestamp: new Date().toLocaleString()
+    };
+    
+    predictionResults.push(prediction);
+    updatePredictionsTable();
+    updateStats();
+    updateCharts();
+    
+    showToast(`Prediction completed for ${userConfig.name}`, 'success');
+}
+
+// Generate mock candlestick data
+function generateMockCandles(count) {
+    const candles = [];
+    let basePrice = 150 + Math.random() * 50; // Base price between 150-200
+    
+    for (let i = 0; i < count; i++) {
+        const change = (Math.random() - 0.5) * 10; // Random change -5 to +5
+        const open = basePrice;
+        const close = basePrice + change;
+        const high = Math.max(open, close) + Math.random() * 3;
+        const low = Math.min(open, close) - Math.random() * 3;
+        
+        candles.push({
+            open: open.toFixed(2),
+            high: high.toFixed(2),
+            low: low.toFixed(2),
+            close: close.toFixed(2),
+            volume: Math.floor(Math.random() * 1000000),
+            timestamp: new Date(Date.now() + i * 60000).toISOString(),
+            predicted: true,
+            bullish: close > open
+        });
+        
+        basePrice = close;
+    }
+    
+    return candles;
+}
+
+// Update predictions table
+function updatePredictionsTable() {
+    const tbody = document.getElementById('predictionsTableBody');
+    tbody.innerHTML = '';
+    
+    predictionResults.forEach(prediction => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${prediction.userName}</td>
+            <td><span class="badge bg-primary">${prediction.company}</span></td>
+            <td>${prediction.timeframe}</td>
+            <td><span class="badge bg-info">${prediction.model.toUpperCase()}</span></td>
+            <td>
+                <div class="d-flex flex-wrap gap-1">
+                    ${prediction.predictedCandles.slice(0, 5).map(candle => 
+                        `<span class="badge ${candle.bullish ? 'bg-success' : 'bg-danger'}">
+                            ${candle.bullish ? '🟢' : '🔴'}
+                        </span>`
+                    ).join('')}
+                    ${prediction.predictedCandles.length > 5 ? `<span class="text-muted">+${prediction.predictedCandles.length - 5} more</span>` : ''}
+                </div>
+            </td>
+            <td><span class="badge bg-success">${prediction.accuracy}%</span></td>
+            <td><small>${prediction.timestamp}</small></td>
+            <td>
+                <button class="btn btn-sm btn-outline-info" onclick="viewPredictionDetails(${prediction.userId})">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Update dashboard statistics
+function updateStats() {
+    document.getElementById('totalPredictions').textContent = predictionResults.length;
+    
+    if (predictionResults.length > 0) {
+        const avgAccuracy = predictionResults.reduce((sum, pred) => sum + parseFloat(pred.accuracy), 0) / predictionResults.length;
+        document.getElementById('avgAccuracy').textContent = avgAccuracy.toFixed(2) + '%';
+    }
+    
+    // Update confusion matrix with mock data
+    updateConfusionMatrix();
+}
+
+// Update confusion matrix
+function updateConfusionMatrix() {
+    // Generate mock confusion matrix data
+    const tp = Math.floor(Math.random() * 50) + 30; // True Positives
+    const fp = Math.floor(Math.random() * 20) + 5;  // False Positives
+    const fn = Math.floor(Math.random() * 20) + 5;  // False Negatives
+    const tn = Math.floor(Math.random() * 50) + 30; // True Negatives
+    
+    document.getElementById('tp').textContent = tp;
+    document.getElementById('fp').textContent = fp;
+    document.getElementById('fn').textContent = fn;
+    document.getElementById('tn').textContent = tn;
+    
+    // Calculate metrics
+    const accuracy = ((tp + tn) / (tp + fp + fn + tn) * 100).toFixed(2);
+    const precision = (tp / (tp + fp) * 100).toFixed(2);
+    const recall = (tp / (tp + fn) * 100).toFixed(2);
+    const f1Score = (2 * (precision * recall) / (parseFloat(precision) + parseFloat(recall))).toFixed(2);
+    
+    document.getElementById('accuracy').textContent = accuracy + '%';
+    document.getElementById('precision').textContent = precision + '%';
+    document.getElementById('recall').textContent = recall + '%';
+    document.getElementById('f1Score').textContent = f1Score + '%';
+}
+
+// Initialize charts
+function initializeCharts() {
+    initializeLiveCandlestickChart();
+    initializePredictedCandlestickChart();
+    initializeModelPerformanceChart();
+    initializeModelComparisonChart();
+    initializeTechnicalIndicators();
+}
+
+// Initialize live candlestick chart
+function initializeLiveCandlestickChart() {
+    const layout = {
+        dragmode: 'zoom',
+        margin: {r: 10, t: 25, b: 40, l: 60},
+        showlegend: true,
+        xaxis: {
+            autorange: true,
+            title: 'Date',
+            type: 'date',
+            rangeslider: {visible: false}
+        },
+        yaxis: {
+            autorange: true,
+            title: 'Price ($)'
+        }
+    };
+    
+    Plotly.newPlot('liveCandlestickChart', [], layout, {responsive: true});
+}
+
+// Initialize predicted candlestick chart
+function initializePredictedCandlestickChart() {
+    const layout = {
+        dragmode: 'zoom',
+        margin: {r: 10, t: 25, b: 40, l: 60},
+        showlegend: true,
+        xaxis: {
+            autorange: true,
+            title: 'Date',
+            type: 'date',
+            rangeslider: {visible: false}
+        },
+        yaxis: {
+            autorange: true,
+            title: 'Predicted Price ($)'
+        }
+    };
+    
+    Plotly.newPlot('predictedCandlestickChart', [], layout, {responsive: true});
+}
+
+// Function to convert numerical data to candlestick format
+function convertToCandlestick(numericalData) {
+    return numericalData.map(d => ({
+        timestamp: new Date(d.timestamp),
+        open: parseFloat(d.open),
+        high: parseFloat(d.high),
+        low: parseFloat(d.low),
+        close: parseFloat(d.close)
+    }));
+}
+
+// Update the data fetching function
+async function fetchAndUpdateChart() {
+    try {
+        const response = await fetch('/api/market-data');
+        const data = await response.json();
+        const candlestickData = convertToCandlestick(data);
+        initializeCandlestickChart(candlestickData);
+    } catch (error) {
+        console.error('Error fetching market data:', error);
+    }
+}
+
+// Update live candlestick chart
+function updateLiveCandlestickChart(data) {
+    const trace = {
+        x: data.map(d => d.timestamp),
+        open: data.map(d => d.open),
+        high: data.map(d => d.high),
+        low: data.map(d => d.low),
+        close: data.map(d => d.close),
+        type: 'candlestick',
+        name: 'Live Data',
+        increasing: {line: {color: '#00ff88'}},
+        decreasing: {line: {color: '#ff4757'}}
+    };
+    
+    Plotly.react('liveCandlestickChart', [trace]);
+}
+
+// Update predicted candlestick chart
+function updatePredictedCandlestickChart(data) {
+    const trace = {
+        x: data.map(d => d.timestamp),
+        open: data.map(d => d.open),
+        high: data.map(d => d.high),
+        low: data.map(d => d.low),
+        close: data.map(d => d.close),
+        type: 'candlestick',
+        name: 'Predicted Data',
+        increasing: {line: {color: '#51cf66', width: 3, dash: 'dash'}},
+        decreasing: {line: {color: '#ff6b6b', width: 3, dash: 'dash'}}
+    };
+    
+    Plotly.react('predictedCandlestickChart', [trace]);
+}
+
+// Generate mock candlestick data
+function generateMockCandlestickData() {
+    const data = [];
+    let basePrice = 150;
+    const startDate = new Date('2023-01-01');
+    
+    for (let i = 0; i < 100; i++) {
+        const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+        const change = (Math.random() - 0.5) * 10;
+        const open = basePrice;
+        const close = basePrice + change;
+        const high = Math.max(open, close) + Math.random() * 5;
+        const low = Math.min(open, close) - Math.random() * 5;
+        
+        data.push({
+            timestamp: date.toISOString().split('T')[0],
+            open: open.toFixed(2),
+            high: high.toFixed(2),
+            low: low.toFixed(2),
+            close: close.toFixed(2),
+            volume: Math.floor(Math.random() * 1000000)
+        });
+        
+        basePrice = close;
+    }
+    
+    return data;
+}
+
+// Initialize model performance chart
+function initializeModelPerformanceChart() {
+    const data = [{
+        x: ['LSTM', 'CNN', 'RNN', 'Hybrid'],
+        y: [85.2, 78.9, 72.1, 89.7],
+        type: 'bar',
+        marker: {
+            color: ['#667eea', '#f093fb', '#4facfe', '#43e97b']
+        }
+    }];
+    
+    const layout = {
+        title: 'Model Accuracy Comparison',
+        xaxis: { title: 'Model Type' },
+        yaxis: { title: 'Accuracy (%)' },
+        margin: { t: 30, b: 40, l: 50, r: 10 }
+    };
+    
+    Plotly.newPlot('modelPerformanceChart', data, layout, {responsive: true});
+}
+
+// Initialize model comparison chart
+function initializeModelComparisonChart() {
+    const models = ['LSTM', 'CNN', 'RNN', 'Hybrid'];
+    const metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score'];
+    
+    const traces = models.map((model, index) => ({
+        x: metrics,
+        y: metrics.map(() => Math.random() * 20 + 75), // Random values between 75-95
+        name: model,
+        type: 'scatter',
+        mode: 'lines+markers'
+    }));
+    
+    const layout = {
+        title: 'Model Performance Metrics',
+        xaxis: { title: 'Metrics' },
+        yaxis: { title: 'Score (%)' },
+        margin: { t: 30, b: 40, l: 50, r: 10 }
+    };
+    
+    Plotly.newPlot('modelComparisonChart', traces, layout, {responsive: true});
+}
+
+// Initialize technical indicators
+function initializeTechnicalIndicators() {
+    const dates = Array.from({length: 30}, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - 29 + i);
+        return date.toISOString().split('T')[0];
+    });
+    
+    const traces = [
+        {
+            x: dates,
+            y: dates.map(() => Math.random() * 20 + 40),
+            name: 'RSI',
+            type: 'scatter',
+            line: { color: '#667eea' }
+        },
+        {
+            x: dates,
+            y: dates.map(() => Math.random() * 100 - 50),
+            name: 'MACD',
+            type: 'scatter',
+            line: { color: '#f093fb' }
+        }
+    ];
+    
+    const layout = {
+        title: 'Technical Indicators',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Value' },
+        margin: { t: 30, b: 40, l: 50, r: 10 }
+    };
+    
+    Plotly.newPlot('technicalIndicators', traces, layout, {responsive: true});
+}
+
+// Update charts
+function updateCharts() {
+    // Update charts with new data when predictions are made
+    initializeModelPerformanceChart();
+    initializeModelComparisonChart();
+}
+
+// Refresh live chart
+function refreshLiveChart() {
+    const company = document.getElementById('liveChartCompany').value;
+    showToast(`Fetching live data for ${company}...`, 'info');
+    
+    fetch(`/api/candlestick/live?symbol=${company}&timeframe=1h`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const candlestickData = convertToCandlestick(data.data);
+                updateLiveCandlestickChart(candlestickData);
+                showToast(`Live chart updated for ${company}`, 'success');
+            } else {
+                showToast(`Failed to load live data for ${company}: ${data.error}`, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching live data:', error);
+            showToast('Failed to refresh live chart', 'danger');
+        });
+}
+
+// Refresh prediction chart
+function refreshPredictionChart() {
+    const company = document.getElementById('predictionChartCompany').value;
+    showToast(`Generating predictions for ${company}...`, 'info');
+    
+    fetch(`/api/candlestick/predict?symbol=${company}&timeframe=1h&periods=10`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const predictedData = convertToCandlestick(data.predictions);
+                updatePredictedCandlestickChart(predictedData);
+                showToast(`Predictions updated for ${company}`, 'success');
+            } else {
+                showToast(`Failed to generate predictions for ${company}: ${data.error}`, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error generating predictions:', error);
+            showToast('Failed to refresh predictions', 'danger');
+        });
+}
+
+// Load sample data
+function loadSampleData() {
+    // Add some sample recent predictions
+    const recentPredictions = document.getElementById('recentPredictions');
+    recentPredictions.innerHTML = `
+        <div class="mb-2 p-2 border-start border-primary border-3">
+            <small class="text-muted">2 minutes ago</small><br>
+            <strong>AAPL</strong> - <span class="candle-green">Bullish</span> (LSTM)
+        </div>
+        <div class="mb-2 p-2 border-start border-danger border-3">
+            <small class="text-muted">5 minutes ago</small><br>
+            <strong>TSLA</strong> - <span class="candle-red">Bearish</span> (CNN)
+        </div>
+        <div class="mb-2 p-2 border-start border-success border-3">
+            <small class="text-muted">8 minutes ago</small><br>
+            <strong>MSFT</strong> - <span class="candle-green">Bullish</span> (Hybrid)
+        </div>
+    `;
+}
+
+// Utility functions
+function editUser(userId) {
+    const user = userConfigs.find(u => u.id === userId);
+    if (!user) {
+        showToast('User not found!', 'danger');
+        return;
+    }
+    
+    // Create modal for editing user configuration
+    const modalHtml = `
+        <div class="modal fade" id="editUserModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit ${user.name} Configuration</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editUserForm">
+                            <div class="mb-3">
+                                <label class="form-label">User Name</label>
+                                <input type="text" class="form-control" id="editUserName" value="${user.name}">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Company Symbol</label>
+                                <select class="form-select" id="editUserCompany">
+                                    <option value="AAPL" ${user.company === 'AAPL' ? 'selected' : ''}>Apple (AAPL)</option>
+                                    <option value="MSFT" ${user.company === 'MSFT' ? 'selected' : ''}>Microsoft (MSFT)</option>
+                                    <option value="GOOGL" ${user.company === 'GOOGL' ? 'selected' : ''}>Google (GOOGL)</option>
+                                    <option value="AMZN" ${user.company === 'AMZN' ? 'selected' : ''}>Amazon (AMZN)</option>
+                                    <option value="TSLA" ${user.company === 'TSLA' ? 'selected' : ''}>Tesla (TSLA)</option>
+                                    <option value="META" ${user.company === 'META' ? 'selected' : ''}>Meta (META)</option>
+                                    <option value="NVDA" ${user.company === 'NVDA' ? 'selected' : ''}>NVIDIA (NVDA)</option>
+                                    <option value="NFLX" ${user.company === 'NFLX' ? 'selected' : ''}>Netflix (NFLX)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Timeframe</label>
+                                <select class="form-select" id="editUserTimeframe">
+                                    <option value="1m" ${user.timeframe === '1m' ? 'selected' : ''}>1 Minute</option>
+                                    <option value="5m" ${user.timeframe === '5m' ? 'selected' : ''}>5 Minutes</option>
+                                    <option value="15m" ${user.timeframe === '15m' ? 'selected' : ''}>15 Minutes</option>
+                                    <option value="30m" ${user.timeframe === '30m' ? 'selected' : ''}>30 Minutes</option>
+                                    <option value="1h" ${user.timeframe === '1h' ? 'selected' : ''}>1 Hour</option>
+                                    <option value="4h" ${user.timeframe === '4h' ? 'selected' : ''}>4 Hours</option>
+                                    <option value="1d" ${user.timeframe === '1d' ? 'selected' : ''}>1 Day</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">ML Model</label>
+                                <select class="form-select" id="editUserModel">
+                                    <option value="lstm" ${user.model === 'lstm' ? 'selected' : ''}>LSTM</option>
+                                    <option value="cnn" ${user.model === 'cnn' ? 'selected' : ''}>CNN</option>
+                                    <option value="rnn" ${user.model === 'rnn' ? 'selected' : ''}>RNN</option>
+                                    <option value="hybrid" ${user.model === 'hybrid' ? 'selected' : ''}>Hybrid (LSTM+CNN+RNN)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Candles to Predict</label>
+                                <input type="number" class="form-control" id="editUserCandles" min="1" max="50" value="${user.candles}">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveUserConfig(${userId})">Save Changes</button>
+                        <button type="button" class="btn btn-success" onclick="saveAndPredict(${userId})">Save & Generate Prediction</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('editUserModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body and show
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+    modal.show();
+}
+
+// Save user configuration changes
+function saveUserConfig(userId) {
+    const user = userConfigs.find(u => u.id === userId);
+    if (!user) {
+        showToast('User not found!', 'danger');
+        return;
+    }
+    
+    // Update user configuration
+    user.name = document.getElementById('editUserName').value;
+    user.company = document.getElementById('editUserCompany').value;
+    user.timeframe = document.getElementById('editUserTimeframe').value;
+    user.model = document.getElementById('editUserModel').value;
+    user.candles = parseInt(document.getElementById('editUserCandles').value);
+    
+    // Update the UI
+    updateUserList();
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+    modal.hide();
+    
+    showToast(`Configuration updated for ${user.name}!`, 'success');
+}
+
+// Save configuration and generate prediction
+function saveAndPredict(userId) {
+    saveUserConfig(userId);
+    
+    const user = userConfigs.find(u => u.id === userId);
+    if (!user) return;
+    
+    // Generate prediction for this specific user
+    showToast(`Generating prediction for ${user.name}...`, 'info');
+    
+    // Call the batch prediction API for single user
+    fetch('/api/predictions/batch', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            user_configs: [user]
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.results.length > 0) {
+            const result = data.results[0];
+            if (result.success) {
+                const prediction = {
+                    userId: user.id,
+                    userName: user.name,
+                    company: result.symbol,
+                    timeframe: result.timeframe,
+                    model: result.model,
+                    candlesRequested: result.predicted_candles.length,
+                    predictedCandles: result.predicted_candles,
+                    accuracy: result.accuracy,
+                    timestamp: new Date(result.timestamp).toLocaleString()
+                };
+                
+                // Remove any existing prediction for this user
+                predictionResults = predictionResults.filter(p => p.userId !== userId);
+                predictionResults.push(prediction);
+                
+                updatePredictionsTable();
+                updateStats();
+                updateCharts();
+                
+                // Update chart if it's showing the same company
+                const chartCompany = document.getElementById('chartCompany').value;
+                if (chartCompany === user.company) {
+                    refreshChartWithPredictions(user.company, prediction.predictedCandles);
+                }
+                
+                showToast(`Prediction completed for ${user.name}!`, 'success');
+            } else {
+                // Handle specific error messages for single user
+                let errorMessage = result.error || 'Failed to generate prediction';
+                
+                // Format user-friendly error message
+                if (errorMessage.includes('not found') || errorMessage.includes('invalid symbol')) {
+                    errorMessage = `Symbol "${user.company}" not found or invalid. Please check the company symbol.`;
+                } else if (errorMessage.includes('rate limit') || errorMessage.includes('Too Many Requests')) {
+                    errorMessage = 'API rate limits exceeded. Please try again in a few minutes.';
+                } else if (errorMessage.includes('insufficient data')) {
+                    errorMessage = `Insufficient historical data available for ${user.company}. Try a different symbol or timeframe.`;
+                }
+                
+                showToast(`Prediction failed for ${user.name}: ${errorMessage}`, 'danger', 5000);
+                
+                // Highlight the user in the list with an error indicator
+                const userElement = document.querySelector(`#userList [data-user-id="${user.id}"]`);
+                if (userElement) {
+                    userElement.classList.add('border-danger');
+                    setTimeout(() => userElement.classList.remove('border-danger'), 5000);
+                }
+            }
+        } else {
+            // Handle specific error messages for batch request
+            let errorMessage = data.error || 'Unknown error';
+            
+            // Format user-friendly error message
+            if (errorMessage.includes('not found') || errorMessage.includes('invalid symbol')) {
+                errorMessage = `Symbol "${user.company}" not found or invalid. Please check the company symbol.`;
+            } else if (errorMessage.includes('rate limit') || errorMessage.includes('Too Many Requests')) {
+                errorMessage = 'API rate limits exceeded. Please try again in a few minutes.';
+            } else if (errorMessage.includes('insufficient data')) {
+                errorMessage = `Insufficient historical data available for ${user.company}. Try a different symbol or timeframe.`;
+            }
+            
+            showToast(`Prediction failed: ${errorMessage}`, 'danger', 5000);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const errorMessage = error.message || 'Failed to generate prediction. Please try again.';
+        showToast(errorMessage, 'danger', 5000);
+    });
+}
+
+// Refresh chart with predictions highlighted separately
+function refreshChartWithPredictions(symbol, predictedCandles) {
+    fetch(`/api/candlestick/data?symbol=${symbol}&timeframe=1h&period=1mo&predictions=false`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Combine historical data with user's predicted candles
+                const historicalData = data.data.map(d => ({...d, predicted: false}));
+                const userPredictions = predictedCandles.map(d => ({...d, predicted: true}));
+                const combinedData = [...historicalData, ...userPredictions];
+                
+                updateCandlestickChart(combinedData);
+                showToast(`Chart updated with predictions for ${symbol}`, 'success');
+            } else {
+                showToast(`Failed to load data for ${symbol}: ${data.error}`, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching chart data:', error);
+            showToast('Failed to refresh chart with predictions.', 'warning');
+        });
+}
+
+function viewPredictionDetails(userId) {
+    const prediction = predictionResults.find(p => p.userId === userId);
+    if (!prediction) {
+        showToast('Prediction not found!', 'danger');
+        return;
+    }
+    
+    // Create modal for viewing prediction details
+    const modalHtml = `
+        <div class="modal fade" id="predictionDetailsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Prediction Details - ${prediction.userName}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Company:</strong> ${prediction.company}<br>
+                                <strong>Timeframe:</strong> ${prediction.timeframe}<br>
+                                <strong>Model:</strong> ${prediction.model.toUpperCase()}<br>
+                                <strong>Accuracy:</strong> <span class="badge bg-success">${prediction.accuracy}%</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Candles Predicted:</strong> ${prediction.candlesRequested}<br>
+                                <strong>Generated:</strong> ${prediction.timestamp}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Predicted Candlesticks:</h6>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Open</th>
+                                            <th>High</th>
+                                            <th>Low</th>
+                                            <th>Close</th>
+                                            <th>Trend</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${prediction.predictedCandles.map((candle, index) => `
+                                            <tr>
+                                                <td>${index + 1}</td>
+                                                <td>$${parseFloat(candle.open).toFixed(2)}</td>
+                                                <td>$${parseFloat(candle.high).toFixed(2)}</td>
+                                                <td>$${parseFloat(candle.low).toFixed(2)}</td>
+                                                <td>$${parseFloat(candle.close).toFixed(2)}</td>
+                                                <td>
+                                                    <span class="badge ${candle.bullish ? 'bg-success' : 'bg-danger'}">
+                                                        ${candle.bullish ? '🟢 Bullish' : '🔴 Bearish'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" onclick="showInChart('${prediction.company}', ${prediction.userId})">Show in Chart</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('predictionDetailsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body and show
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('predictionDetailsModal'));
+    modal.show();
+}
+
+// Show prediction in chart
+function showInChart(symbol, userId) {
+    const prediction = predictionResults.find(p => p.userId === userId);
+    if (!prediction) return;
+    
+    // Update chart company selector
+    document.getElementById('chartCompany').value = symbol;
+    
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('predictionDetailsModal'));
+    modal.hide();
+    
+    // Refresh chart with this prediction
+    refreshChartWithPredictions(symbol, prediction.predictedCandles);
+}
+
+// Generate prediction for a single user
+function generateSinglePrediction(userId) {
+    const user = userConfigs.find(u => u.id === userId);
+    if (!user) {
+        showToast('User not found!', 'danger');
+        return;
+    }
+    
+    showToast(`Generating prediction for ${user.name}...`, 'info');
+    
+    // Call the batch prediction API for single user
+    fetch('/api/predictions/batch', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            user_configs: [user]
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.results.length > 0) {
+            const result = data.results[0];
+            if (result.success) {
+                const prediction = {
+                    userId: user.id,
+                    userName: user.name,
+                    company: result.symbol,
+                    timeframe: result.timeframe,
+                    model: result.model,
+                    candlesRequested: result.predicted_candles.length,
+                    predictedCandles: result.predicted_candles,
+                    accuracy: result.accuracy,
+                    timestamp: new Date(result.timestamp).toLocaleString()
+                };
+                
+                // Remove any existing prediction for this user
+                predictionResults = predictionResults.filter(p => p.userId !== userId);
+                predictionResults.push(prediction);
+                
+                updatePredictionsTable();
+                updateStats();
+                updateCharts();
+                
+                // Update chart if it's showing the same company
+                const chartCompany = document.getElementById('chartCompany').value;
+                if (chartCompany === user.company) {
+                    refreshChartWithPredictions(user.company, prediction.predictedCandles);
+                }
+                
+                showToast(`Prediction completed for ${user.name}!`, 'success');
+            } else {
+                showToast(`Prediction failed for ${user.name}: ${result.error}`, 'danger');
+            }
+        } else {
+            showToast(`Prediction failed: ${data.error || 'Unknown error'}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to generate prediction. Please try again.', 'danger');
+    });
+}
+
+function showToast(message, type = 'info', duration = 3000) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 80%; box-shadow: 0 4px 8px rgba(0,0,0,0.1);';
+    
+    // Add icon based on type
+    let icon = '';
+    switch(type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle me-2"></i>';
+            break;
+        case 'danger':
+            icon = '<i class="fas fa-exclamation-triangle me-2"></i>';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-circle me-2"></i>';
+            break;
+        case 'info':
+        default:
+            icon = '<i class="fas fa-info-circle me-2"></i>';
+            break;
+    }
+    
+    toast.innerHTML = `
+        ${icon}${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after specified duration
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300); // Wait for fade out animation
+        }
+    }, duration);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}User Configuration - Candlestick Predictor{% endblock %}
+
+{% block extra_head %}
+<style>
+    .config-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .form-control {
+        border-radius: 10px;
+        border: 1px solid #ddd;
+        padding: 12px 15px;
+    }
+    .btn-primary {
+        border-radius: 10px;
+        padding: 12px 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-cog text-primary me-3"></i>
+                User Configuration
+            </h1>
+            <p class="lead text-muted">Manage your trading preferences and model settings</p>
+        </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="config-card">
+                <h3 class="mb-4">
+                    <i class="fas fa-user-cog me-2"></i>
+                    Personal Settings
+                </h3>
+                
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ user_config.username or '' }}" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ user_config.email or '' }}" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="preferred_model" class="form-label">Preferred ML Model</label>
+                            <select class="form-control" id="preferred_model" name="preferred_model">
+                                {% for model in available_models %}
+                                <option value="{{ model }}" {% if user_config.preferred_model == model %}selected{% endif %}>
+                                    {{ model }}
+                                    {% if model == 'LSTM' %} - Long Short-Term Memory
+                                    {% elif model == 'CNN' %} - Convolutional Neural Network
+                                    {% elif model == 'RNN' %} - Recurrent Neural Network
+                                    {% elif model == 'Hybrid' %} - Combined Model (Recommended)
+                                    {% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-light">Choose the machine learning model for predictions</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="default_symbol" class="form-label">Default Trading Symbol</label>
+                            <select class="form-control" id="default_symbol" name="default_symbol">
+                                {% for symbol, name in available_companies.items() %}
+                                <option value="{{ symbol }}" {% if user_config.default_company == symbol %}selected{% endif %}>
+                                    {{ symbol }} - {{ name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-light">Default stock symbol for predictions</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="default_timeframe" class="form-label">Default Timeframe</label>
+                            <select class="form-control" id="default_timeframe" name="default_timeframe">
+                                {% for tf_key, tf_data in available_timeframes.items() %}
+                                <option value="{{ tf_key }}" {% if user_config.default_timeframe == tf_key %}selected{% endif %}>
+                                    {{ tf_data.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-light">Time interval for candlestick data</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="default_prediction_count" class="form-label">Number of Candles to Predict</label>
+                            <select class="form-control" id="default_prediction_count" name="default_prediction_count">
+                                <option value="1" {% if user_config.default_prediction_count == 1 %}selected{% endif %}>1 Candle</option>
+                                <option value="3" {% if user_config.default_prediction_count == 3 %}selected{% endif %}>3 Candles</option>
+                                <option value="5" {% if user_config.default_prediction_count == 5 %}selected{% endif %}>5 Candles</option>
+                                <option value="10" {% if user_config.default_prediction_count == 10 %}selected{% endif %}>10 Candles</option>
+                                <option value="15" {% if user_config.default_prediction_count == 15 %}selected{% endif %}>15 Candles</option>
+                                <option value="20" {% if user_config.default_prediction_count == 20 %}selected{% endif %}>20 Candles</option>
+                                <option value="30" {% if user_config.default_prediction_count == 30 %}selected{% endif %}>30 Candles</option>
+                            </select>
+                            <small class="form-text text-light">How many future candles to predict</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="preferred_provider" class="form-label">Data Provider</label>
+                            <select class="form-control" id="preferred_provider" name="preferred_provider">
+                                <option value="yahoo_finance" {% if user_config.preferred_provider == 'yahoo_finance' %}selected{% endif %}>Yahoo Finance (Free)</option>
+                                <option value="alpha_vantage" {% if user_config.preferred_provider == 'alpha_vantage' %}selected{% endif %}>Alpha Vantage (API Key Required)</option>
+                                <option value="polygon" {% if user_config.preferred_provider == 'polygon' %}selected{% endif %}>Polygon.io (API Key Required)</option>
+                            </select>
+                            <small class="form-text text-light">Source for market data</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="risk_tolerance" class="form-label">Risk Tolerance</label>
+                            <select class="form-control" id="risk_tolerance" name="risk_tolerance">
+                                <option value="low" {% if user_settings.risk_tolerance == 'low' %}selected{% endif %}>Low</option>
+                                <option value="medium" {% if user_settings.risk_tolerance == 'medium' or not user_settings.risk_tolerance %}selected{% endif %}>Medium</option>
+                                <option value="high" {% if user_settings.risk_tolerance == 'high' %}selected{% endif %}>High</option>
+                            </select>
+                            <small class="form-text text-light">Your trading risk preference</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5 class="mb-3">
+                            <i class="fas fa-cogs me-2"></i>
+                            Advanced Settings
+                        </h5>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="email_notifications" name="email_notifications" 
+                                   {% if user_settings.email_notifications == 'True' %}checked{% endif %}>
+                            <label class="form-check-label" for="email_notifications">
+                                <i class="fas fa-envelope me-2"></i>
+                                Enable email notifications for predictions
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="auto_retrain" name="auto_retrain"
+                                   {% if user_settings.auto_retrain == 'True' %}checked{% endif %}>
+                            <label class="form-check-label" for="auto_retrain">
+                                <i class="fas fa-sync-alt me-2"></i>
+                                Enable automatic model retraining
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg me-3">
+                            <i class="fas fa-save me-2"></i>
+                            Save Configuration
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light btn-lg">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Back to Dashboard
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Additional Info -->
+    <div class="row mt-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        Configuration Notes
+                    </h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Changes will take effect immediately</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Model preferences affect new predictions only</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Email notifications require valid email address</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Auto-retraining improves model accuracy over time</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

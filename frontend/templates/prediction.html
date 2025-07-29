@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Prediction - Candlestick Predictor{% endblock %}
+
+{% block extra_head %}
+<style>
+    .prediction-wizard {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    .config-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
+    }
+    .model-info-card {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .prediction-preview {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .form-section {
+        border-left: 4px solid #007bff;
+        padding-left: 20px;
+        margin-bottom: 30px;
+    }
+    .advanced-option {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+    }
+    .risk-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    .risk-low { background-color: #28a745; }
+    .risk-medium { background-color: #ffc107; }
+    .risk-high { background-color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="prediction-wizard">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-5 mb-3">
+                    <i class="fas fa-magic me-3"></i>
+                    Advanced Prediction Wizard
+                </h1>
+                <p class="lead mb-0">
+                    Configure your ML model parameters and generate precise candlestick predictions
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="d-flex flex-column align-items-end">
+                    <div class="mb-2">
+                        <span class="badge bg-light text-dark fs-6">
+                            <i class="fas fa-user me-1"></i>{{ current_user.username }}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="badge bg-success fs-6">
+                            <i class="fas fa-check-circle me-1"></i>Ready to Predict
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form id="advancedPredictionForm">
+        <div class="row">
+            <!-- Configuration Panel -->
+            <div class="col-lg-8">
+                <!-- Basic Configuration -->
+                <div class="config-card">
+                    <div class="form-section">
+                        <h4 class="mb-4">
+                            <i class="fas fa-cog text-primary me-2"></i>
+                            Basic Configuration
+                        </h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-building me-1"></i>Trading Symbol
+                                </label>
+                                <select class="form-select form-select-lg" name="symbol" required>
+                                    {% if available_companies %}
+                                        {% for company in available_companies %}
+                                            <option value="{{ company.symbol }}" 
+                                                    {% if user_config and user_config.default_company == company.symbol %}selected{% endif %}>
+                                                {{ company.name }} ({{ company.symbol }})
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="AAPL">Apple Inc. (AAPL)</option>
+                                        <option value="MSFT">Microsoft Corp. (MSFT)</option>
+                                        <option value="TSLA">Tesla Inc. (TSLA)</option>
+                                        <option value="GOOGL">Alphabet Inc. (GOOGL)</option>
+                                        <option value="AMZN">Amazon.com Inc. (AMZN)</option>
+                                        <option value="META">Meta Platforms Inc. (META)</option>
+                                        <option value="NVDA">NVIDIA Corp. (NVDA)</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-clock me-1"></i>Timeframe
+                                </label>
+                                <select class="form-select form-select-lg" name="timeframe" required>
+                                    {% if available_timeframes %}
+                                        {% for tf in available_timeframes %}
+                                            <option value="{{ tf.value }}" 
+                                                    {% if user_config and user_config.default_timeframe == tf.value %}selected{% endif %}>
+                                                {{ tf.name }}
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="1m">1 Minute</option>
+                                        <option value="5m">5 Minutes</option>
+                                        <option value="15m">15 Minutes</option>
+                                        <option value="30m">30 Minutes</option>
+                                        <option value="1h" selected>1 Hour</option>
+                                        <option value="4h">4 Hours</option>
+                                        <option value="1d">1 Day</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-hashtag me-1"></i>Prediction Horizon
+                                </label>
+                                <input type="number" class="form-control form-control-lg" 
+                                       name="prediction_count" min="1" max="100" 
+                                       value="{{ user_config.default_prediction_count if user_config else 10 }}" 
+                                       required>
+                                <div class="form-text">Number of future candles to predict (1-100)</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-database me-1"></i>Data Provider
+                                </label>
+                                <select class="form-select form-select-lg" name="provider" required>
+                                    {% if available_providers %}
+                                        {% for provider in available_providers %}
+                                            <option value="{{ provider.value }}" 
+                                                    {% if user_config and user_config.preferred_provider == provider.value %}selected{% endif %}>
+                                                {{ provider.name }}
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="yahoo">Yahoo Finance</option>
+                                        <option value="alpha_vantage">Alpha Vantage</option>
+                                        <option value="polygon">Polygon.io</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ML Model Configuration -->
+                <div class="config-card">
+                    <div class="form-section">
+                        <h4 class="mb-4">
+                            <i class="fas fa-brain text-primary me-2"></i>
+                            Machine Learning Model
+                        </h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-robot me-1"></i>Model Type
+                                </label>
+                                <select class="form-select form-select-lg" name="model_type" required>
+                                    {% if available_models %}
+                                        {% for model in available_models %}
+                                            <option value="{{ model.value }}" 
+                                                    {% if user_config and user_config.preferred_model == model.value %}selected{% endif %}>
+                                                {{ model.name }} - {{ model.description }}
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="lstm">LSTM - Long Short-Term Memory</option>
+                                        <option value="cnn">CNN - Convolutional Neural Network</option>
+                                        <option value="rnn">RNN - Recurrent Neural Network</option>
+                                        <option value="hybrid">Hybrid - Combined Model</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-shield-alt me-1"></i>Risk Profile
+                                </label>
+                                <select class="form-select form-select-lg" name="risk_level">
+                                    <option value="conservative">
+                                        <span class="risk-indicator risk-low"></span>
+                                        Conservative - Lower volatility predictions
+                                    </option>
+                                    <option value="moderate" selected>
+                                        <span class="risk-indicator risk-medium"></span>
+                                        Moderate - Balanced risk/reward
+                                    </option>
+                                    <option value="aggressive">
+                                        <span class="risk-indicator risk-high"></span>
+                                        Aggressive - Higher volatility predictions
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Options -->
+                <div class="config-card">
+                    <div class="form-section">
+                        <h4 class="mb-4">
+                            <i class="fas fa-sliders-h text-primary me-2"></i>
+                            Advanced Options
+                        </h4>
+                        
+                        <div class="advanced-option">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="include_volume" id="includeVolume" checked>
+                                <label class="form-check-label fw-bold" for="includeVolume">
+                                    <i class="fas fa-chart-bar me-1"></i>Include Volume Analysis
+                                </label>
+                                <div class="form-text">Use trading volume data to improve prediction accuracy</div>
+                            </div>
+                        </div>
+                        
+                        <div class="advanced-option">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="technical_indicators" id="technicalIndicators" checked>
+                                <label class="form-check-label fw-bold" for="technicalIndicators">
+                                    <i class="fas fa-chart-line me-1"></i>Technical Indicators
+                                </label>
+                                <div class="form-text">Include RSI, MACD, Bollinger Bands in analysis</div>
+                            </div>
+                        </div>
+                        
+                        <div class="advanced-option">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="market_sentiment" id="marketSentiment">
+                                <label class="form-check-label fw-bold" for="marketSentiment">
+                                    <i class="fas fa-heart me-1"></i>Market Sentiment Analysis
+                                </label>
+                                <div class="form-text">Incorporate news and social media sentiment</div>
+                            </div>
+                        </div>
+                        
+                        <div class="advanced-option">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="save_as_default" id="saveAsDefault">
+                                <label class="form-check-label fw-bold" for="saveAsDefault">
+                                    <i class="fas fa-save me-1"></i>Save as Default Configuration
+                                </label>
+                                <div class="form-text">Remember these settings for future predictions</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Panel -->
+            <div class="col-lg-4">
+                <!-- Model Information -->
+                <div class="model-info-card">
+                    <h5 class="mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Model Information
+                    </h5>
+                    <div id="modelInfo">
+                        <div class="mb-2">
+                            <strong>Selected Model:</strong>
+                            <span id="selectedModel">LSTM</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Accuracy:</strong>
+                            <span id="modelAccuracy">85.2%</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Training Data:</strong>
+                            <span id="trainingData">2 years</span>
+                        </div>
+                        <div>
+                            <strong>Last Updated:</strong>
+                            <span id="lastUpdated">{{ user_stats.last_update or 'Never' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prediction Preview -->
+                <div class="prediction-preview">
+                    <h5 class="mb-3">
+                        <i class="fas fa-eye me-2"></i>
+                        Prediction Preview
+                    </h5>
+                    <div id="predictionPreview">
+                        <div class="mb-2">
+                            <strong>Symbol:</strong>
+                            <span id="previewSymbol">AAPL</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Timeframe:</strong>
+                            <span id="previewTimeframe">1 Hour</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Predictions:</strong>
+                            <span id="previewCount">10 candles</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Risk Level:</strong>
+                            <span id="previewRisk">Moderate</span>
+                        </div>
+                        <div>
+                            <strong>Estimated Time:</strong>
+                            <span id="estimatedTime">~30 seconds</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
+                        <i class="fas fa-magic me-2"></i>
+                        Generate Predictions
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Update preview when form changes
+function updatePreview() {
+    const symbol = document.querySelector('select[name="symbol"]').value;
+    const timeframe = document.querySelector('select[name="timeframe"]').selectedOptions[0].text;
+    const modelType = document.querySelector('select[name="model_type"]').selectedOptions[0].text;
+    const predictionCount = document.querySelector('input[name="prediction_count"]').value;
+    const riskLevel = document.querySelector('select[name="risk_level"]').selectedOptions[0].text;
+    
+    document.getElementById('previewSymbol').textContent = symbol;
+    document.getElementById('previewTimeframe').textContent = timeframe;
+    document.getElementById('previewCount').textContent = predictionCount + ' candles';
+    document.getElementById('previewRisk').textContent = riskLevel;
+    document.getElementById('selectedModel').textContent = modelType.split(' - ')[0];
+    
+    // Estimate processing time based on prediction count
+    const estimatedSeconds = Math.max(10, Math.ceil(predictionCount / 5) * 10);
+    document.getElementById('estimatedTime').textContent = `~${estimatedSeconds} seconds`;
+}
+
+// Handle form submission
+document.getElementById('advancedPredictionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const generateBtn = document.getElementById('generateBtn');
+    
+    // Show loading state
+    generateBtn.disabled = true;
+    generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating Predictions...';
+    
+    fetch('/api/predictions/generate', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            const alertHtml = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Success!</strong> ${data.message}
+                    <br><small>Prediction ID: ${data.prediction_id}</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            const container = document.querySelector('.container-fluid');
+            container.insertAdjacentHTML('afterbegin', alertHtml);
+            
+            // Redirect to results or dashboard
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 2000);
+        } else {
+            // Show error message
+            const alertHtml = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Error!</strong> ${data.error}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            const container = document.querySelector('.container-fluid');
+            container.insertAdjacentHTML('afterbegin', alertHtml);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const alertHtml = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Network Error!</strong> Please check your connection and try again.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        const container = document.querySelector('.container-fluid');
+        container.insertAdjacentHTML('afterbegin', alertHtml);
+    })
+    .finally(() => {
+        // Reset button state
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '<i class="fas fa-magic me-2"></i>Generate Predictions';
+    });
+});
+
+// Add event listeners for real-time preview updates
+document.addEventListener('DOMContentLoaded', function() {
+    const formElements = document.querySelectorAll('select, input');
+    formElements.forEach(element => {
+        element.addEventListener('change', updatePreview);
+        element.addEventListener('input', updatePreview);
+    });
+    
+    // Initial preview update
+    updatePreview();
+});
+</script>
+{% endblock %}

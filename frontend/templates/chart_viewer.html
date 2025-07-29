@@ -1,0 +1,854 @@
+{% extends "base.html" %}
+
+{% block title %}Chart Viewer - Candlestick Predictor{% endblock %}
+
+{% block extra_head %}
+<style>
+    .chart-controls {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        min-height: 600px;
+    }
+    .indicator-panel {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .prediction-panel {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 50px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5 mb-3">
+                <i class="fas fa-chart-candlestick text-primary me-3"></i>
+                Interactive Chart Viewer
+            </h1>
+            <p class="lead text-muted">Analyze candlestick patterns with real-time predictions and technical indicators</p>
+        </div>
+    </div>
+    
+    <!-- Chart Controls -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="chart-controls">
+                <form id="chartControlsForm" class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label"><strong>Company</strong></label>
+                        <select class="form-select" id="companySelect" name="company">
+                            <option value="AAPL" selected>Apple (AAPL)</option>
+                            <option value="MSFT">Microsoft (MSFT)</option>
+                            <option value="TSLA">Tesla (TSLA)</option>
+                            <option value="GOOGL">Google (GOOGL)</option>
+                            <option value="AMZN">Amazon (AMZN)</option>
+                            <option value="NVDA">NVIDIA (NVDA)</option>
+                            <option value="META">Meta (META)</option>
+                            <option value="NFLX">Netflix (NFLX)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label"><strong>Timeframe</strong></label>
+                        <select class="form-select" id="timeframeSelect" name="timeframe">
+                            <option value="1min">1 Minute</option>
+                            <option value="5min">5 Minutes</option>
+                            <option value="15min">15 Minutes</option>
+                            <option value="30min">30 Minutes</option>
+                            <option value="1h" selected>1 Hour</option>
+                            <option value="4h">4 Hours</option>
+                            <option value="1d">1 Day</option>
+                            <option value="1w">1 Week</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label"><strong>Data Source</strong></label>
+                        <select class="form-select" id="dataSourceSelect" name="data_source">
+                            <option value="yahoo" selected>Yahoo Finance</option>
+                            <option value="alpha_vantage">Alpha Vantage</option>
+                            <option value="polygon">Polygon.io</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label"><strong>Period</strong></label>
+                        <select class="form-select" id="periodSelect" name="period">
+                            <option value="1d">1 Day</option>
+                            <option value="5d">5 Days</option>
+                            <option value="1mo" selected>1 Month</option>
+                            <option value="3mo">3 Months</option>
+                            <option value="6mo">6 Months</option>
+                            <option value="1y">1 Year</option>
+                            <option value="2y">2 Years</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label"><strong>Model</strong></label>
+                        <select class="form-select" id="modelSelect" name="model_type">
+                            <option value="lstm" selected>LSTM</option>
+                            <option value="cnn">CNN</option>
+                            <option value="rnn">RNN</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label"><strong>Actions</strong></label>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary" onclick="loadChart()">
+                                <i class="fas fa-sync-alt me-1"></i>Update Chart
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Chart and Prediction Panel -->
+    <div class="row mb-4">
+        <div class="col-lg-9">
+            <div class="chart-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        <span id="chartTitle">AAPL - 1 Hour Candlestick Chart</span>
+                    </h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="togglePredictionsBtn" onclick="togglePredictions()">
+                            <i class="fas fa-eye me-1" id="togglePredictionsIcon"></i><span id="togglePredictionsText">Hide Predictions</span>
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="exportChart()">
+                            <i class="fas fa-download me-1"></i>Export
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="fullscreen()">
+                            <i class="fas fa-expand me-1"></i>Fullscreen
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="loading-spinner" id="loadingSpinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Loading chart data...</p>
+                </div>
+                
+                <div id="candlestickChart" style="height: 500px;"></div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3">
+            <!-- Current Prediction -->
+            <div class="prediction-panel">
+                <h5 class="mb-3">
+                    <i class="fas fa-crystal-ball me-2"></i>Current Prediction
+                </h5>
+                <div id="currentPrediction">
+                    <div class="text-center">
+                        <div class="mb-3">
+                            <span class="badge bg-light text-dark fs-6" id="predictionSignal">HOLD</span>
+                        </div>
+                        <div class="mb-3">
+                            <small>Confidence</small><br>
+                            <strong class="fs-4" id="predictionConfidence">---%</strong>
+                        </div>
+                        <div class="mb-3">
+                            <small>Next Candles</small><br>
+                            <strong id="predictionCount">5</strong>
+                        </div>
+                        <div class="mb-3">
+                            <small>Model Used</small><br>
+                            <strong id="predictionModel">LSTM</strong>
+                        </div>
+                        <button class="btn btn-light btn-sm" onclick="generatePrediction()">
+                            <i class="fas fa-magic me-1"></i>Generate New
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Technical Indicators -->
+            <div class="indicator-panel">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-bar me-2"></i>Technical Indicators
+                </h5>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showSMA" checked>
+                    <label class="form-check-label" for="showSMA">Simple Moving Average</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showEMA">
+                    <label class="form-check-label" for="showEMA">Exponential Moving Average</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showRSI">
+                    <label class="form-check-label" for="showRSI">RSI</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showMACD">
+                    <label class="form-check-label" for="showMACD">MACD</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showBollinger">
+                    <label class="form-check-label" for="showBollinger">Bollinger Bands</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showVolume" checked>
+                    <label class="form-check-label" for="showVolume">Volume</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="showPredictionsCheck" checked onchange="togglePredictionsFromCheckbox()">
+                    <label class="form-check-label" for="showPredictionsCheck">Show Predictions</label>
+                </div>
+                <button class="btn btn-primary btn-sm w-100 mb-2" onclick="updateIndicators()">
+                    <i class="fas fa-sync-alt me-1"></i>Update Indicators
+                </button>
+                
+                <!-- Chart Controls -->
+                <div class="mt-3">
+                    <h6 class="mb-2">Chart Controls</h6>
+                    <div class="btn-group w-100 mb-2" role="group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="zoomChart('1h')">
+                            1H
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="zoomChart('1d')">
+                            1D
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="zoomChart('1w')">
+                            1W
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="zoomChart('1m')">
+                            1M
+                        </button>
+                    </div>
+                    <button class="btn btn-outline-info btn-sm w-100 mb-2" onclick="resetZoom()">
+                        <i class="fas fa-expand-arrows-alt me-1"></i>Reset Zoom
+                    </button>
+                    <button class="btn btn-outline-success btn-sm w-100" onclick="exportChart()">
+                        <i class="fas fa-download me-1"></i>Export Chart
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Market Info -->
+            <div class="indicator-panel">
+                <h5 class="mb-3">
+                    <i class="fas fa-info-circle me-2"></i>Market Info
+                </h5>
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <small class="text-muted">Current Price</small><br>
+                        <strong id="currentPrice">$---</strong>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <small class="text-muted">Change</small><br>
+                        <strong id="priceChange" class="text-success">+$---</strong>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <small class="text-muted">Volume</small><br>
+                        <strong id="currentVolume">---</strong>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <small class="text-muted">Market Cap</small><br>
+                        <strong id="marketCap">$---</strong>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <small class="text-muted">Last Updated: <span id="lastUpdated">--:--</span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Prediction History -->
+    <div class="row">
+        <div class="col-12">
+            <div class="chart-container">
+                <h5 class="mb-3">
+                    <i class="fas fa-history me-2"></i>Prediction History
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Symbol</th>
+                                <th>Timeframe</th>
+                                <th>Model</th>
+                                <th>Prediction</th>
+                                <th>Confidence</th>
+                                <th>Actual Result</th>
+                                <th>Accuracy</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictionHistoryTable">
+                            <tr>
+                                <td colspan="9" class="text-center text-muted">
+                                    <i class="fas fa-info-circle me-2"></i>No prediction history available. Generate predictions to see results here.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentChart = null;
+let chartData = null;
+let predictionData = null;
+let showPredictions = true;
+
+// Initialize chart on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize UI state
+    updatePredictionToggleUI();
+    
+    loadChart();
+    
+    // Auto-refresh every 30 seconds for real-time data
+    setInterval(function() {
+        if (document.getElementById('timeframeSelect').value === '1min' || 
+            document.getElementById('timeframeSelect').value === '5min') {
+            loadChart(false); // Silent refresh
+        }
+    }, 30000);
+});
+
+function loadChart(showLoading = true) {
+    if (showLoading) {
+        document.getElementById('loadingSpinner').style.display = 'block';
+        document.getElementById('candlestickChart').style.display = 'none';
+    }
+    
+    const formData = new FormData(document.getElementById('chartControlsForm'));
+    
+    fetch('/api/chart/data', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            chartData = data.chart_data;
+            predictionData = data.predictions;
+            renderChart();
+            updateMarketInfo(data.market_info);
+            updatePredictionPanel(data.current_prediction);
+        } else {
+            console.error('Error loading chart:', data.error);
+            alert('Error loading chart data: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading chart data');
+    })
+    .finally(() => {
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('candlestickChart').style.display = 'block';
+    });
+}
+
+function renderChart() {
+    const company = document.getElementById('companySelect').value;
+    const timeframe = document.getElementById('timeframeSelect').value;
+    
+    // Update chart title
+    document.getElementById('chartTitle').textContent = `${company} - ${timeframe} Candlestick Chart`;
+    
+    // Prepare candlestick data
+    const candlestickTrace = {
+        x: chartData.timestamps,
+        open: chartData.open,
+        high: chartData.high,
+        low: chartData.low,
+        close: chartData.close,
+        type: 'candlestick',
+        name: company,
+        increasing: {line: {color: '#00ff00'}},
+        decreasing: {line: {color: '#ff0000'}}
+    };
+    
+    const traces = [candlestickTrace];
+    
+    // Add technical indicators if available and enabled
+    if (chartData.technical_indicators) {
+        const indicators = chartData.technical_indicators;
+        
+        // Simple Moving Averages
+        if (document.getElementById('showSMA').checked) {
+            if (indicators.sma_20) {
+                traces.push({
+                    x: chartData.timestamps,
+                    y: indicators.sma_20,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'SMA 20',
+                    line: {color: 'blue', width: 2}
+                });
+            }
+            if (indicators.sma_50) {
+                traces.push({
+                    x: chartData.timestamps,
+                    y: indicators.sma_50,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'SMA 50',
+                    line: {color: 'purple', width: 2}
+                });
+            }
+        }
+        
+        // Exponential Moving Averages
+        if (document.getElementById('showEMA').checked) {
+            if (indicators.ema_12) {
+                traces.push({
+                    x: chartData.timestamps,
+                    y: indicators.ema_12,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'EMA 12',
+                    line: {color: 'cyan', width: 2, dash: 'dot'}
+                });
+            }
+            if (indicators.ema_26) {
+                traces.push({
+                    x: chartData.timestamps,
+                    y: indicators.ema_26,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'EMA 26',
+                    line: {color: 'magenta', width: 2, dash: 'dot'}
+                });
+            }
+        }
+        
+        // Bollinger Bands
+        if (document.getElementById('showBollinger').checked && indicators.bollinger_bands) {
+            const bb = indicators.bollinger_bands;
+            traces.push({
+                x: chartData.timestamps,
+                y: bb.upper,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'BB Upper',
+                line: {color: 'rgba(255,0,0,0.5)', width: 1},
+                fill: 'tonexty',
+                fillcolor: 'rgba(255,0,0,0.1)'
+            });
+            traces.push({
+                x: chartData.timestamps,
+                y: bb.lower,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'BB Lower',
+                line: {color: 'rgba(255,0,0,0.5)', width: 1}
+            });
+        }
+    }
+    
+    // Add volume trace if enabled
+    if (document.getElementById('showVolume').checked && chartData.volume) {
+        const volumeTrace = {
+            x: chartData.timestamps,
+            y: chartData.volume,
+            type: 'bar',
+            name: 'Volume',
+            yaxis: 'y2',
+            opacity: 0.3,
+            marker: {color: 'blue'}
+        };
+        traces.push(volumeTrace);
+    }
+    
+    // Add prediction markers if available and enabled
+    if (showPredictions && predictionData && predictionData.length > 0) {
+        const predictionTrace = {
+            x: predictionData.map(p => p.timestamp),
+            y: predictionData.map(p => p.predicted_close),
+            mode: 'markers+lines',
+            type: 'scatter',
+            name: 'Predictions',
+            line: {color: 'orange', dash: 'dash'},
+            marker: {color: 'orange', size: 8}
+        };
+        traces.push(predictionTrace);
+    }
+    
+    // Add MACD and RSI indicators as separate subplots
+    let subplotCount = 1;
+    const subplotDomains = [{domain: [0.4, 1]}]; // Main chart takes top 60%
+    
+    if (chartData.technical_indicators) {
+        const indicators = chartData.technical_indicators;
+        
+        // Add MACD subplot
+        if (document.getElementById('showMACD').checked && indicators.macd) {
+            const macdDomain = [0.2, 0.35]; // MACD takes middle 15%
+            subplotDomains.push({domain: macdDomain});
+            subplotCount++;
+            
+            traces.push({
+                x: chartData.timestamps,
+                y: indicators.macd.macd_line,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'MACD',
+                line: {color: 'blue', width: 2},
+                yaxis: `y${subplotCount}`
+            });
+            
+            traces.push({
+                x: chartData.timestamps,
+                y: indicators.macd.signal_line,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Signal',
+                line: {color: 'red', width: 2},
+                yaxis: `y${subplotCount}`
+            });
+            
+            traces.push({
+                x: chartData.timestamps,
+                y: indicators.macd.histogram,
+                type: 'bar',
+                name: 'Histogram',
+                marker: {color: 'gray'},
+                yaxis: `y${subplotCount}`
+            });
+        }
+        
+        // Add RSI subplot
+         if (document.getElementById('showRSI').checked && indicators.rsi && indicators.rsi.some(val => val !== null)) {
+            const rsiDomain = [0.0, 0.15]; // RSI takes bottom 15%
+            subplotDomains.push({domain: rsiDomain});
+            subplotCount++;
+            
+            traces.push({
+                x: chartData.timestamps,
+                y: indicators.rsi,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'RSI',
+                line: {color: 'purple', width: 2},
+                yaxis: `y${subplotCount}`
+            });
+            
+            // Add RSI overbought/oversold lines
+            traces.push({
+                x: chartData.timestamps,
+                y: Array(chartData.timestamps.length).fill(70),
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Overbought',
+                line: {color: 'red', width: 1, dash: 'dash'},
+                yaxis: `y${subplotCount}`,
+                showlegend: false
+            });
+            
+            traces.push({
+                x: chartData.timestamps,
+                y: Array(chartData.timestamps.length).fill(30),
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Oversold',
+                line: {color: 'green', width: 1, dash: 'dash'},
+                yaxis: `y${subplotCount}`,
+                showlegend: false
+            });
+        }
+    }
+    
+    // Create layout with dynamic subplots
+    const layout = {
+        title: {
+            text: `${company} Candlestick Chart with Technical Indicators`,
+            font: {size: 16}
+        },
+        xaxis: {
+            title: 'Time',
+            rangeslider: {visible: false},
+            domain: [0, 1]
+        },
+        yaxis: {
+            title: 'Price ($)',
+            side: 'left',
+            domain: subplotDomains[0].domain
+        },
+        yaxis2: {
+            title: 'Volume',
+            overlaying: 'y',
+            side: 'right',
+            showgrid: false
+        },
+        showlegend: true,
+        margin: {l: 50, r: 50, t: 50, b: 50},
+        plot_bgcolor: 'white',
+        paper_bgcolor: 'white',
+        height: 600
+    };
+    
+    // Add additional y-axes for subplots
+    for (let i = 1; i < subplotCount; i++) {
+        const yAxisKey = `yaxis${i + 1}`;
+        layout[yAxisKey] = {
+            domain: subplotDomains[i].domain,
+            anchor: 'x',
+            side: 'left'
+        };
+        
+        if (i === 1 && document.getElementById('showMACD').checked) {
+             layout[yAxisKey].title = 'MACD';
+         } else if ((i === 2 && document.getElementById('showRSI').checked) || (i === 1 && !document.getElementById('showMACD').checked && document.getElementById('showRSI').checked)) {
+             layout[yAxisKey].title = 'RSI';
+             layout[yAxisKey].range = [0, 100];
+         }
+    }
+    
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d'],
+        displaylogo: false
+    };
+    
+    Plotly.newPlot('candlestickChart', traces, layout, config);
+}
+
+function togglePredictions() {
+    showPredictions = !showPredictions;
+    updatePredictionToggleUI();
+    renderChart();
+}
+
+function togglePredictionsFromCheckbox() {
+    showPredictions = document.getElementById('showPredictionsCheck').checked;
+    updatePredictionToggleUI();
+    renderChart();
+}
+
+function updatePredictionToggleUI() {
+    const btn = document.getElementById('togglePredictionsBtn');
+    const icon = document.getElementById('togglePredictionsIcon');
+    const text = document.getElementById('togglePredictionsText');
+    const checkbox = document.getElementById('showPredictionsCheck');
+    
+    if (showPredictions) {
+        btn.className = 'btn btn-primary btn-sm';
+        icon.className = 'fas fa-eye me-1';
+        text.textContent = 'Hide Predictions';
+        checkbox.checked = true;
+    } else {
+        btn.className = 'btn btn-outline-primary btn-sm';
+        icon.className = 'fas fa-eye-slash me-1';
+        text.textContent = 'Show Predictions';
+        checkbox.checked = false;
+    }
+}
+
+function generatePrediction() {
+    const formData = new FormData(document.getElementById('chartControlsForm'));
+    formData.append('prediction_count', document.getElementById('predictionCount').textContent);
+    
+    fetch('/api/predictions/generate', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updatePredictionPanel(data.prediction);
+            loadChart(false); // Refresh chart with new predictions
+        } else {
+            alert('Error generating prediction: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error generating prediction');
+    });
+}
+
+function updateIndicators() {
+    // This would trigger a re-render with selected indicators
+    loadChart();
+}
+
+function updateMarketInfo(marketInfo) {
+    if (marketInfo) {
+        document.getElementById('currentPrice').textContent = `$${marketInfo.current_price || '---'}`;
+        document.getElementById('priceChange').textContent = marketInfo.price_change || '+$---';
+        document.getElementById('currentVolume').textContent = marketInfo.volume || '---';
+        document.getElementById('marketCap').textContent = marketInfo.market_cap || '$---';
+        document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+        
+        // Update price change color
+        const changeElement = document.getElementById('priceChange');
+        if (marketInfo.price_change && marketInfo.price_change.startsWith('+')) {
+            changeElement.className = 'text-success';
+        } else if (marketInfo.price_change && marketInfo.price_change.startsWith('-')) {
+            changeElement.className = 'text-danger';
+        }
+    }
+}
+
+function updatePredictionPanel(prediction) {
+    if (prediction) {
+        document.getElementById('predictionSignal').textContent = prediction.signal.toUpperCase();
+        document.getElementById('predictionConfidence').textContent = `${prediction.confidence}%`;
+        document.getElementById('predictionModel').textContent = prediction.model_type.toUpperCase();
+        
+        // Update signal badge color
+        const signalElement = document.getElementById('predictionSignal');
+        signalElement.className = 'badge fs-6 ';
+        if (prediction.signal === 'buy') {
+            signalElement.className += 'bg-success';
+        } else if (prediction.signal === 'sell') {
+            signalElement.className += 'bg-danger';
+        } else {
+            signalElement.className += 'bg-warning text-dark';
+        }
+    }
+}
+
+function exportChart() {
+    // Export chart as PNG
+    Plotly.downloadImage('candlestickChart', {
+        format: 'png',
+        width: 1200,
+        height: 800,
+        filename: `${document.getElementById('companySelect').value}_chart`
+    });
+}
+
+function fullscreen() {
+    const chartElement = document.getElementById('candlestickChart');
+    if (chartElement.requestFullscreen) {
+        chartElement.requestFullscreen();
+    }
+}
+
+function zoomChart(period) {
+    if (!chartData || !chartData.timestamps) return;
+    
+    const now = new Date();
+    let startTime;
+    
+    switch(period) {
+        case '1h':
+            startTime = new Date(now.getTime() - 60 * 60 * 1000);
+            break;
+        case '1d':
+            startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            break;
+        case '1w':
+            startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+        case '1m':
+            startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            break;
+        default:
+            return;
+    }
+    
+    // Update chart x-axis range
+    Plotly.relayout('candlestickChart', {
+        'xaxis.range': [startTime.toISOString(), now.toISOString()]
+    });
+}
+
+function resetZoom() {
+    if (!chartData || !chartData.timestamps) return;
+    
+    // Reset to show all data
+    Plotly.relayout('candlestickChart', {
+        'xaxis.range': [chartData.timestamps[0], chartData.timestamps[chartData.timestamps.length - 1]]
+    });
+}
+
+function addTechnicalIndicator(type, params = {}) {
+    // Enhanced technical indicator addition
+    if (!chartData || !chartData.technical_indicators) return;
+    
+    const indicators = chartData.technical_indicators;
+    let newTrace;
+    
+    switch(type) {
+        case 'sma':
+            const period = params.period || 20;
+            if (indicators[`sma_${period}`]) {
+                newTrace = {
+                    x: chartData.timestamps,
+                    y: indicators[`sma_${period}`],
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `SMA ${period}`,
+                    line: {color: params.color || 'blue', width: 2}
+                };
+            }
+            break;
+        case 'ema':
+            const emaPeriod = params.period || 12;
+            if (indicators[`ema_${emaPeriod}`]) {
+                newTrace = {
+                    x: chartData.timestamps,
+                    y: indicators[`ema_${emaPeriod}`],
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `EMA ${emaPeriod}`,
+                    line: {color: params.color || 'cyan', width: 2, dash: 'dot'}
+                };
+            }
+            break;
+    }
+    
+    if (newTrace) {
+        Plotly.addTraces('candlestickChart', newTrace);
+    }
+}
+
+function toggleIndicatorVisibility(indicatorName) {
+    // Toggle visibility of specific indicators
+    const chartDiv = document.getElementById('candlestickChart');
+    const data = chartDiv.data;
+    
+    for (let i = 0; i < data.length; i++) {
+        if (data[i].name === indicatorName) {
+            const newVisibility = data[i].visible === false ? true : 'legendonly';
+            Plotly.restyle('candlestickChart', {'visible': newVisibility}, i);
+            break;
+        }
+    }
+}
+</script>
+{% endblock %}

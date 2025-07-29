@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Candlestick Predictor{% endblock %}
+
+{% block extra_head %}
+<style>
+    .auth-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .auth-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        overflow: hidden;
+        max-width: 900px;
+        width: 100%;
+    }
+    .auth-left {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 60px 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+    .auth-right {
+        padding: 60px 40px;
+    }
+    .feature-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        text-align: left;
+    }
+    .feature-icon {
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 12px 30px;
+        font-weight: 600;
+    }
+    .form-control {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 12px 15px;
+        transition: all 0.3s ease;
+    }
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="container">
+        <div class="auth-card">
+            <div class="row g-0">
+                <!-- Left Side - Features -->
+                <div class="col-lg-6 auth-left">
+                    <div>
+                        <h2 class="mb-4">
+                            <i class="fas fa-chart-line me-3"></i>
+                            Welcome Back!
+                        </h2>
+                        <p class="lead mb-5">Access your personalized candlestick prediction dashboard</p>
+                        
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">AI-Powered Predictions</h6>
+                                <small>Advanced machine learning models</small>
+                            </div>
+                        </div>
+                        
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-chart-candlestick"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Real-time Charts</h6>
+                                <small>Live candlestick data visualization</small>
+                            </div>
+                        </div>
+                        
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Multiple Models</h6>
+                                <small>LSTM, CNN, RNN, and Hybrid models</small>
+                            </div>
+                        </div>
+                        
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Multi-Source Data</h6>
+                                <small>Yahoo Finance, Alpha Vantage, Polygon.io</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Side - Login Form -->
+                <div class="col-lg-6 auth-right">
+                    <div class="text-center mb-5">
+                        <h3 class="mb-3">Sign In</h3>
+                        <p class="text-muted">Enter your credentials to access your account</p>
+                    </div>
+                    
+                    <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+                        <div class="mb-4">
+                            <label for="username" class="form-label">Username or Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       placeholder="Enter your username or email" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       placeholder="Enter your password" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword()">
+                                    <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="rememberMe" name="remember_me">
+                                    <label class="form-check-label" for="rememberMe">
+                                        Remember me
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6 text-end">
+                                <a href="{{ url_for('forgot_password') }}" class="text-decoration-none">
+                                    Forgot password?
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid mb-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-sign-in-alt me-2"></i>
+                                Sign In
+                            </button>
+                        </div>
+                        
+                        <div class="text-center">
+                            <p class="mb-0">
+                                Don't have an account? 
+                                <a href="{{ url_for('register') }}" class="text-decoration-none fw-bold">
+                                    Create one here
+                                </a>
+                            </p>
+                        </div>
+                    </form>
+                    
+                    <!-- Demo Account -->
+                    <div class="mt-4 p-3 bg-light rounded">
+                        <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Demo Account</h6>
+                        <p class="small mb-2">Try the system with our demo account:</p>
+                        <div class="row">
+                            <div class="col-6">
+                                <small><strong>Username:</strong> demo</small>
+                            </div>
+                            <div class="col-6">
+                                <small><strong>Password:</strong> demo123</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="fillDemoCredentials()">
+                            <i class="fas fa-magic me-1"></i>Use Demo Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('passwordToggleIcon');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.className = 'fas fa-eye-slash';
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.className = 'fas fa-eye';
+    }
+}
+
+function fillDemoCredentials() {
+    document.getElementById('username').value = 'demo';
+    document.getElementById('password').value = 'demo123';
+}
+
+// Form validation
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    
+    if (!username) {
+        e.preventDefault();
+        alert('Please enter your username or email');
+        return;
+    }
+    
+    if (!password) {
+        e.preventDefault();
+        alert('Please enter your password');
+        return;
+    }
+    
+    if (password.length < 6) {
+        e.preventDefault();
+        alert('Password must be at least 6 characters long');
+        return;
+    }
+});
+
+// Auto-focus on username field
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('username').focus();
+});
+</script>
+{% endblock %}
