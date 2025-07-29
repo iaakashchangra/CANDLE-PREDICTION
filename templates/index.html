@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Home - CandleStick AI Prediction System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
+        color: white;
+        padding: 80px 20px;
+        text-align: center;
+    }
+    
+    .hero-content {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .hero-title {
+        font-size: 3.5em;
+        font-weight: bold;
+        margin-bottom: 20px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .hero-subtitle {
+        font-size: 1.3em;
+        margin-bottom: 40px;
+        opacity: 0.9;
+        line-height: 1.6;
+    }
+    
+    .hero-buttons {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .hero-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 15px 30px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 1.1em;
+        font-weight: 600;
+        transition: all 0.3s;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .hero-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .chart-section {
+        padding: 40px 20px;
+        background: #f8f9fa;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+
+    .chart-controls {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+    }
+
+    #candlestickChart {
+        min-height: 400px;
+    }
+
+    .predictions-container {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    .prediction-card {
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .prediction-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .prediction-confidence {
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+
+    .technical-indicators {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .indicator-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="hero-content">
+        <h1 class="hero-title">🕯️ AI-Powered Trading Predictions</h1>
+        <p class="hero-subtitle">
+            Harness the power of machine learning to predict candlestick patterns and make informed trading decisions. 
+            Get personalized predictions tailored to your trading style and risk preferences.
+        </p>
+        <div class="hero-buttons">
+            {% if current_user and current_user.is_authenticated %}
+                <a href="/dashboard" class="hero-btn">
+                    📊 My Dashboard
+                </a>
+                <a href="/chart-predictions" class="hero-btn">
+                    🔮 Generate Predictions
+                </a>
+            {% else %}
+                <a href="/auth/register" class="hero-btn">
+                    🚀 Get Started
+                </a>
+                <a href="/auth/login" class="hero-btn">
+                    🔑 Login
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="chart-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="chart-container">
+                    <div class="chart-controls">
+                        <input type="text" id="stockSymbol" class="form-control" placeholder="Enter stock symbol..." value="AAPL">
+                        <button id="updateChart" class="btn btn-primary">Update Chart</button>
+                    </div>
+                    <canvas id="candlestickChart"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="predictions-container">
+                    <h3>Pattern Predictions</h3>
+                    <div id="predictions"></div>
+                    <h3 class="mt-4">Technical Indicators</h3>
+                    <div id="technicalIndicators" class="technical-indicators"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="features-section">
+    <div class="features-container">
+        <h2 class="features-title">Powerful Features for Smart Trading</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3 class="feature-title">Personal Dashboard</h3>
+                <p class="feature-description">
+                    Track your personalized predictions, view historical performance, and manage your trading preferences all in one place.
+                </p>
+                <a href="/dashboard" class="feature-link">View Dashboard</a>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">🔮</div>
+                <h3 class="feature-title">AI Predictions</h3>
+                <p class="feature-description">
+                    Generate accurate candlestick predictions using advanced ML models including LSTM, CNN, and hybrid approaches.
+                </p>
+                <a href="/chart-predictions" class="feature-link">Generate Predictions</a>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <h3 class="feature-title">Interactive Charts</h3>
+                <p class="feature-description">
+                    Visualize historical data and predictions with beautiful, interactive candlestick charts powered by Plotly.
+                </p>
+                <a href="/chart" class="feature-link">View Charts</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="stats-section">
+    <div class="stats-container">
+        <h2>Trusted by Traders Worldwide</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">5+</div>
+                <div class="stat-label">ML Models</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">50+</div>
+                <div class="stat-label">Prediction Candles</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">8+</div>
+                <div class="stat-label">Stock Symbols</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">24/7</div>
+                <div class="stat-label">Availability</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the chart
+        const ctx = document.getElementById('candlestickChart').getContext('2d');
+        let chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Stock Price',
+                    data: [],
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            displayFormats: {
+                                day: 'MMM d'
+                            }
+                        },
+                        ticks: {
+                            source: 'data',
+                            maxRotation: 0
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const point = context.raw;
+                                return [
+                                    'Open: $' + point.o.toFixed(2),
+                                    'High: $' + point.h.toFixed(2),
+                                    'Low: $' + point.l.toFixed(2),
+                                    'Close: $' + point.c.toFixed(2)
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Function to update chart data
+        function updateChartData(symbol) {
+            fetch(`/api/stock-data/${symbol}`)
+                .then(response => response.json())
+                .then(data => {
+                    const formattedData = data.prices.map(price => price.close);
+                    chart.data.labels = data.prices.map(price => new Date(price.time).toLocaleDateString());
+                    chart.data.datasets[0].data = formattedData;
+                    chart.update();
+                    updatePredictions(symbol);
+                    updateTechnicalIndicators(symbol);
+                })
+                .catch(error => console.error('Error fetching stock data:', error));
+        }
+
+        // Function to update predictions
+        function updatePredictions(symbol) {
+            fetch(`/api/predictions/${symbol}`)
+                .then(response => response.json())
+                .then(data => {
+                    const predictionsDiv = document.getElementById('predictions');
+                    predictionsDiv.innerHTML = data.patterns.map(pattern => `
+                        <div class="prediction-card">
+                            <div class="prediction-header">
+                                <strong>${pattern.name}</strong>
+                                <span class="badge ${pattern.signal === 'bullish' ? 'bg-success' : 'bg-danger'} rounded-pill">
+                                    ${pattern.signal}
+                                </span>
+                            </div>
+                            <div class="prediction-confidence">
+                                Confidence: ${(pattern.confidence * 100).toFixed(2)}%
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(error => console.error('Error fetching predictions:', error));
+        }
+
+        // Function to update technical indicators
+        function updateTechnicalIndicators(symbol) {
+            fetch(`/api/technical-indicators/${symbol}`)
+                .then(response => response.json())
+                .then(data => {
+                    const indicatorsDiv = document.getElementById('technicalIndicators');
+                    indicatorsDiv.innerHTML = Object.entries(data).map(([indicator, value]) => `
+                        <div class="indicator-card">
+                            <strong>${indicator}</strong>
+                            <div>${typeof value === 'number' ? value.toFixed(2) : value}</div>
+                        </div>
+                    `).join('');
+                })
+                .catch(error => console.error('Error fetching technical indicators:', error));
+        }
+
+        // Event listener for the update button
+        document.getElementById('updateChart').addEventListener('click', () => {
+            const symbol = document.getElementById('stockSymbol').value.toUpperCase();
+            if (symbol) {
+                updateChartData(symbol);
+            }
+        });
+
+        // Initial load with default symbol
+        updateChartData('AAPL');
+    });
+</script>
+{% endblock %}
+{% endblock %}

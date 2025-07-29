@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candlestick Chart with ML Predictions</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .control-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        .control-group select,
+        .control-group input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .chart-container {
+            margin: 20px 0;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .chart-title {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🕯️ Candlestick Chart with ML Predictions</h1>
+            <p>Visualize historical data and AI-powered price predictions</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="symbol">Stock Symbol:</label>
+                <select id="symbol">
+                    <option value="AAPL">Apple (AAPL)</option>
+                    <option value="MSFT">Microsoft (MSFT)</option>
+                    <option value="GOOGL">Google (GOOGL)</option>
+                    <option value="AMZN">Amazon (AMZN)</option>
+                    <option value="TSLA">Tesla (TSLA)</option>
+                    <option value="META">Meta (META)</option>
+                    <option value="NVDA">NVIDIA (NVDA)</option>
+                    <option value="NFLX">Netflix (NFLX)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="timeframe">Timeframe:</label>
+                <select id="timeframe">
+                    <option value="1min">1 Minute</option>
+                    <option value="5min">5 Minutes</option>
+                    <option value="15min">15 Minutes</option>
+                    <option value="30min">30 Minutes</option>
+                    <option value="1h">1 Hour</option>
+                    <option value="4h">4 Hours</option>
+                    <option value="1d" selected>1 Day</option>
+                    <option value="1w">1 Week</option>
+                    <option value="1mo">1 Month</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="period">Period:</label>
+                <select id="period">
+                    <option value="1mo">1 Month</option>
+                    <option value="3mo">3 Months</option>
+                    <option value="6mo">6 Months</option>
+                    <option value="1y" selected>1 Year</option>
+                    <option value="2y">2 Years</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="model_type">ML Model:</label>
+                <select id="model_type">
+                    <option value="LSTM">LSTM</option>
+                    <option value="CNN">CNN</option>
+                    <option value="RNN">RNN</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Statistical">Statistical</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="prediction_count">Predictions:</label>
+                <input type="number" id="prediction_count" min="1" max="50" value="10">
+            </div>
+            
+            <div class="control-group">
+                <label for="risk_level">Risk Level:</label>
+                <select id="risk_level">
+                    <option value="conservative">Conservative</option>
+                    <option value="moderate" selected>Moderate</option>
+                    <option value="aggressive">Aggressive</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="chart_style">Chart Style:</label>
+                <select id="chart_style">
+                    <option value="candlestick" selected>Candlestick</option>
+                    <option value="ohlc">OHLC</option>
+                    <option value="line">Line</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="prediction_style">Prediction Display:</label>
+                <select id="prediction_style">
+                    <option value="separate" selected>Separate Chart</option>
+                    <option value="overlay">Overlay</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="provider">Data Provider:</label>
+                <select id="provider">
+                    <option value="yahoo" selected>Yahoo Finance</option>
+                    <option value="alpha_vantage">Alpha Vantage</option>
+                    <option value="polygon">Polygon.io</option>
+                    <option value="finnhub">Finnhub</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="btn" onclick="loadChartData()">📊 Generate Chart with Predictions</button>
+
+        <div id="loading" class="loading" style="display: none;">
+            <p>🔄 Loading data and generating predictions...</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="stats" class="stats" style="display: none;"></div>
+
+        <div id="historical-chart" class="chart-container" style="display: none;">
+            <h3 class="chart-title">📈 Historical Candlestick Data</h3>
+            <div id="historical-plot"></div>
+        </div>
+
+        <div id="prediction-chart" class="chart-container" style="display: none;">
+            <h3 class="chart-title">🔮 ML Predictions</h3>
+            <div id="prediction-plot"></div>
+        </div>
+
+        <div id="combined-chart" class="chart-container" style="display: none;">
+            <h3 class="chart-title">📊 Combined Historical & Prediction Chart</h3>
+            <div id="combined-plot"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadChartData() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const stats = document.getElementById('stats');
+            
+            // Show loading
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            stats.style.display = 'none';
+            hideCharts();
+            
+            try {
+                // Collect form data
+                const formData = new FormData();
+                formData.append('symbol', document.getElementById('symbol').value);
+                formData.append('timeframe', document.getElementById('timeframe').value);
+                formData.append('period', document.getElementById('period').value);
+                formData.append('model_type', document.getElementById('model_type').value);
+                formData.append('prediction_count', document.getElementById('prediction_count').value);
+                formData.append('risk_level', document.getElementById('risk_level').value);
+                formData.append('chart_style', document.getElementById('chart_style').value);
+                formData.append('prediction_style', document.getElementById('prediction_style').value);
+                formData.append('include_volume', 'true');
+                formData.append('include_indicators', 'true');
+                formData.append('provider', document.getElementById('provider').value);
+                
+                // Make API call
+                const response = await fetch('/api/chart/candlestick-with-predictions', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load chart data');
+                }
+                
+                // Hide loading
+                loading.style.display = 'none';
+                
+                // Display stats
+                displayStats(data.data_summary, data.chart_config);
+                
+                // Display charts
+                const predictionStyle = document.getElementById('prediction_style').value;
+                if (predictionStyle === 'separate') {
+                    displaySeparateCharts(data);
+                } else {
+                    displayCombinedChart(data);
+                }
+                
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                
+                // Format user-friendly error message
+                let errorMessage = err.message;
+                const symbol = document.getElementById('symbol').value;
+                
+                if (errorMessage.includes('not found') || errorMessage.includes('invalid symbol')) {
+                    errorMessage = `Symbol "${symbol}" not found or invalid. Please check the company symbol.`;
+                } else if (errorMessage.includes('rate limit') || errorMessage.includes('Too Many Requests')) {
+                    errorMessage = 'API rate limits exceeded. Please try again in a few minutes.';
+                } else if (errorMessage.includes('insufficient data')) {
+                    errorMessage = `Insufficient historical data available for ${symbol}. Try a different symbol or timeframe.`;
+                }
+                
+                // Display error with icon and more details
+                error.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h4><i class="fas fa-exclamation-triangle me-2"></i>Chart Error</h4>
+                        <p>${errorMessage}</p>
+                        <small>Try a different symbol, timeframe, or check your network connection</small>
+                    </div>
+                `;
+                
+                console.error('Chart loading error:', err);
+            }
+        }
+        
+        function displayStats(summary, config) {
+            const stats = document.getElementById('stats');
+            const latestPrice = summary.latest_price.toFixed(2);
+            const finalPrediction = summary.predicted_price_range.final.toFixed(2);
+            const priceChange = (summary.predicted_price_range.final - summary.latest_price).toFixed(2);
+            const changePercent = ((priceChange / summary.latest_price) * 100).toFixed(2);
+            const confidence = (summary.avg_confidence * 100).toFixed(1);
+            
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">$${latestPrice}</div>
+                    <div class="stat-label">Current Price</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">$${finalPrediction}</div>
+                    <div class="stat-label">Predicted Price</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${changePercent}%</div>
+                    <div class="stat-label">Expected Change</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${confidence}%</div>
+                    <div class="stat-label">Avg Confidence</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${summary.historical_points}</div>
+                    <div class="stat-label">Historical Points</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${summary.prediction_points}</div>
+                    <div class="stat-label">Predictions</div>
+                </div>
+            `;
+            stats.style.display = 'grid';
+        }
+        
+        function displaySeparateCharts(data) {
+            // Historical chart
+            const historicalTrace = {
+                x: data.historical_data.timestamps,
+                open: data.historical_data.ohlc.open,
+                high: data.historical_data.ohlc.high,
+                low: data.historical_data.ohlc.low,
+                close: data.historical_data.ohlc.close,
+                type: 'candlestick',
+                name: 'Historical Data',
+                increasing: {line: {color: '#00ff00'}},
+                decreasing: {line: {color: '#ff0000'}}
+            };
+            
+            const historicalLayout = {
+                title: `${data.chart_config.symbol} Historical Data`,
+                xaxis: {title: 'Date'},
+                yaxis: {title: 'Price ($)'},
+                showlegend: true
+            };
+            
+            Plotly.newPlot('historical-plot', [historicalTrace], historicalLayout);
+            document.getElementById('historical-chart').style.display = 'block';
+            
+            // Prediction chart
+            const predictionTrace = {
+                x: data.prediction_data.timestamps,
+                open: data.prediction_data.ohlc.open,
+                high: data.prediction_data.ohlc.high,
+                low: data.prediction_data.ohlc.low,
+                close: data.prediction_data.ohlc.close,
+                type: 'candlestick',
+                name: 'Predictions',
+                increasing: {line: {color: '#0080ff'}},
+                decreasing: {line: {color: '#ff8000'}}
+            };
+            
+            const predictionLayout = {
+                title: `${data.chart_config.symbol} ML Predictions (${data.chart_config.model_type})`,
+                xaxis: {title: 'Date'},
+                yaxis: {title: 'Predicted Price ($)'},
+                showlegend: true
+            };
+            
+            Plotly.newPlot('prediction-plot', [predictionTrace], predictionLayout);
+            document.getElementById('prediction-chart').style.display = 'block';
+        }
+        
+        function displayCombinedChart(data) {
+            const historicalTrace = {
+                x: data.historical_data.timestamps,
+                open: data.historical_data.ohlc.open,
+                high: data.historical_data.ohlc.high,
+                low: data.historical_data.ohlc.low,
+                close: data.historical_data.ohlc.close,
+                type: 'candlestick',
+                name: 'Historical Data',
+                increasing: {line: {color: '#00ff00'}},
+                decreasing: {line: {color: '#ff0000'}}
+            };
+            
+            const predictionTrace = {
+                x: data.prediction_data.timestamps,
+                open: data.prediction_data.ohlc.open,
+                high: data.prediction_data.ohlc.high,
+                low: data.prediction_data.ohlc.low,
+                close: data.prediction_data.ohlc.close,
+                type: 'candlestick',
+                name: 'ML Predictions',
+                increasing: {line: {color: '#0080ff'}},
+                decreasing: {line: {color: '#ff8000'}}
+            };
+            
+            const combinedLayout = {
+                title: `${data.chart_config.symbol} - Historical Data & ML Predictions`,
+                xaxis: {title: 'Date'},
+                yaxis: {title: 'Price ($)'},
+                showlegend: true
+            };
+            
+            Plotly.newPlot('combined-plot', [historicalTrace, predictionTrace], combinedLayout);
+            document.getElementById('combined-chart').style.display = 'block';
+        }
+        
+        function hideCharts() {
+            document.getElementById('historical-chart').style.display = 'none';
+            document.getElementById('prediction-chart').style.display = 'none';
+            document.getElementById('combined-chart').style.display = 'none';
+        }
+        
+        // Load default chart on page load
+        window.addEventListener('load', function() {
+            setTimeout(loadChartData, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-User Stock Predictions Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .prediction-card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        .config-panel {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .indicator {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .indicator.bullish {
+            background-color: rgba(40, 167, 69, 0.1);
+            border-left: 4px solid #28a745;
+        }
+        .indicator.bearish {
+            background-color: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h2 class="mb-4">Multi-User Stock Predictions Dashboard</h2>
+        
+        <!-- User Configuration Panel -->
+        <div class="config-panel">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label for="userCount" class="form-label">Number of Users</label>
+                    <input type="number" class="form-control" id="userCount" min="1" max="5" value="1">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <button class="btn btn-primary mt-4" onclick="generateUserConfigs()">Generate User Configs</button>
+                </div>
+            </div>
+            <div id="userConfigs"></div>
+            <button class="btn btn-success mt-3" onclick="startPredictions()">Start Predictions</button>
+        </div>
+
+        <!-- Predictions Grid -->
+        <div id="predictionsGrid" class="row"></div>
+    </div>
+
+    <!-- Chart.js and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1"></script>
+    <script>
+        // Register the candlestick chart type
+        Chart.register('candlestick');
+    </script>
+
+    <script>
+        function generateUserConfigs() {
+            const userCount = document.getElementById('userCount').value;
+            const configsContainer = document.getElementById('userConfigs');
+            configsContainer.innerHTML = '';
+
+            for (let i = 0; i < userCount; i++) {
+                const userConfig = document.createElement('div');
+                userConfig.className = 'user-config border rounded p-3 mb-3';
+                userConfig.innerHTML = `
+                    <h5>User ${i + 1} Configuration</h5>
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Stock Symbol</label>
+                            <input type="text" class="form-control symbol-input" value="AAPL">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Timeframe</label>
+                            <select class="form-control timeframe-input">
+                                <option value="1m">1 Minute</option>
+                                <option value="5m">5 Minutes</option>
+                                <option value="15m">15 Minutes</option>
+                                <option value="1h">1 Hour</option>
+                                <option value="1d" selected>1 Day</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">ML Model</label>
+                            <select class="form-control model-input">
+                                <option value="lstm">LSTM</option>
+                                <option value="gru">GRU</option>
+                                <option value="transformer">Transformer</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Future Candles</label>
+                            <input type="number" class="form-control candles-input" min="1" max="30" value="5">
+                        </div>
+                    </div>
+                `;
+                configsContainer.appendChild(userConfig);
+            }
+        }
+
+        function startPredictions() {
+            const predictionsGrid = document.getElementById('predictionsGrid');
+            predictionsGrid.innerHTML = '';
+            
+            const userConfigs = document.getElementsByClassName('user-config');
+            Array.from(userConfigs).forEach((config, index) => {
+                const symbol = config.querySelector('.symbol-input').value;
+                const timeframe = config.querySelector('.timeframe-input').value;
+                const model = config.querySelector('.model-input').value;
+                const candles = config.querySelector('.candles-input').value;
+
+                const predictionCard = document.createElement('div');
+                predictionCard.className = 'col-md-6 prediction-card';
+                predictionCard.innerHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">User ${index + 1} - ${symbol} Predictions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="chart${index}"></canvas>
+                            </div>
+                            <div id="indicators${index}"></div>
+                        </div>
+                    </div>
+                `;
+                predictionsGrid.appendChild(predictionCard);
+
+                initializeChart(index, symbol, timeframe, model, candles);
+            });
+        }
+
+        async function initializeChart(index, symbol, timeframe, model, futureCandles) {
+            try {
+                // Fetch historical data
+                const historyResponse = await fetch(`/api/stock-data/${symbol}?timeframe=${timeframe}&candle_count=100`);
+                const historyData = await historyResponse.json();
+
+                // Fetch predictions
+                const predictionsResponse = await fetch(`/api/predictions/${symbol}?timeframe=${timeframe}&model_type=${model}&future_candles=${futureCandles}`);
+                const predictionsData = await predictionsResponse.json();
+
+                const ctx = document.getElementById(`chart${index}`).getContext('2d');
+                
+                // Prepare data for the chart
+                const historicalCandles = historyData.prices.map(candle => ({
+                    x: new Date(candle.time),
+                    o: candle.open,
+                    h: candle.high,
+                    l: candle.low,
+                    c: candle.close
+                }));
+
+                const predictedCandles = predictionsData.predicted_candles.map(candle => ({
+                    x: new Date(candle.time),
+                    o: candle.open,
+                    h: candle.high,
+                    l: candle.low,
+                    c: candle.close
+                }));
+
+                new Chart(ctx, {
+                    type: 'candlestick',
+                    data: {
+                        datasets: [{
+                            label: 'Historical',
+                            data: historicalCandles,
+                            color: {
+                                up: '#26a69a',
+                                down: '#ef5350',
+                                unchanged: '#888888'
+                            }
+                        }, {
+                            label: 'Predicted',
+                            data: predictedCandles,
+                            color: {
+                                up: 'rgba(38, 166, 154, 0.5)',
+                                down: 'rgba(239, 83, 80, 0.5)',
+                                unchanged: 'rgba(136, 136, 136, 0.5)'
+                            }
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: timeframe.includes('m') ? 'minute' : timeframe.includes('h') ? 'hour' : 'day'
+                                },
+                                ticks: {
+                                    maxRotation: 0
+                                },
+                                grid: {
+                                    display: true,
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
+                            },
+                            y: {
+                                position: 'right',
+                                grid: {
+                                    display: true,
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        const d = context.raw;
+                                        return [
+                                            `Open: ${d.o.toFixed(2)}`,
+                                            `High: ${d.h.toFixed(2)}`,
+                                            `Low: ${d.l.toFixed(2)}`,
+                                            `Close: ${d.c.toFixed(2)}`
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Display technical indicators
+                const indicatorsContainer = document.getElementById(`indicators${index}`);
+                indicatorsContainer.innerHTML = `
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">Technical Analysis</h6>
+                            <div class="indicators-grid">
+                                ${predictionsData.technical_indicators.map(indicator => `
+                                    <div class="indicator-card ${indicator.signal.toLowerCase()}">
+                                        <div class="indicator-header">
+                                            <span class="indicator-name">${indicator.name}</span>
+                                            <span class="indicator-signal ${indicator.signal.toLowerCase()}">${indicator.signal}</span>
+                                        </div>
+                                        <div class="indicator-confidence">
+                                            <div class="progress">
+                                                <div class="progress-bar bg-${indicator.signal === 'BUY' ? 'success' : indicator.signal === 'SELL' ? 'danger' : 'warning'}" 
+                                                     role="progressbar" 
+                                                     style="width: ${(indicator.confidence * 100).toFixed(1)}%" 
+                                                     aria-valuenow="${(indicator.confidence * 100).toFixed(1)}" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    ${(indicator.confidence * 100).toFixed(1)}%
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="model-info mt-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-2">Model Information</h6>
+                                        <p class="mb-1"><strong>Type:</strong> ${predictionsData.model_info.type.toUpperCase()}</p>
+                                        <p class="mb-0"><strong>Overall Confidence:</strong></p>
+                                    </div>
+                                    <div class="confidence-indicator">
+                                        <div class="progress" style="width: 100px;">
+                                            <div class="progress-bar bg-primary" 
+                                                 role="progressbar" 
+                                                 style="width: ${(predictionsData.model_info.confidence * 100).toFixed(1)}%" 
+                                                 aria-valuenow="${(predictionsData.model_info.confidence * 100).toFixed(1)}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                ${(predictionsData.model_info.confidence * 100).toFixed(1)}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Add styles for indicators
+                const style = document.createElement('style');
+                style.textContent = `
+                    .indicators-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 1rem;
+                    }
+                    .indicator-card {
+                        background: #f8f9fa;
+                        border-radius: 8px;
+                        padding: 1rem;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    }
+                    .indicator-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 0.5rem;
+                    }
+                    .indicator-name {
+                        font-weight: 600;
+                        color: #495057;
+                    }
+                    .indicator-signal {
+                        padding: 0.25rem 0.5rem;
+                        border-radius: 4px;
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                    }
+                    .indicator-signal.buy {
+                        background: #d4edda;
+                        color: #155724;
+                    }
+                    .indicator-signal.sell {
+                        background: #f8d7da;
+                        color: #721c24;
+                    }
+                    .indicator-signal.hold {
+                        background: #fff3cd;
+                        color: #856404;
+                    }
+                    .indicator-confidence {
+                        margin-top: 0.5rem;
+                    }
+                    .model-info {
+                        border-top: 1px solid #dee2e6;
+                        padding-top: 1rem;
+                    }
+                    .confidence-indicator {
+                        text-align: right;
+                    }
+                `;
+                document.head.appendChild(style);
+
+            } catch (error) {
+                console.error('Error initializing chart:', error);
+            }
+        }
+
+        // Initialize with one user config
+        generateUserConfigs();
+    </script>
+</body>
+</html>

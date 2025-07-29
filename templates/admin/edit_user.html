@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-user-edit"></i> Edit User: {{ user.username }}</h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST" action="{{ url_for('admin_routes.edit_user', user_id=user.id) }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+                            <div class="form-text">Username must be unique</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                            <div class="form-text">Email must be unique</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="password" name="password">
+                            <div class="form-text">Leave blank to keep current password</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password">
+                            <div class="form-text">Passwords must match</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if user.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">Active</label>
+                            <div class="form-text">Inactive users cannot log in</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_admin" name="is_admin" {% if user.is_admin %}checked{% endif %}>
+                            <label class="form-check-label" for="is_admin">Admin User</label>
+                            <div class="form-text">Admin users have full system access</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin_routes.admin_users') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to Users
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="update-user-btn">
+                                <i class="fas fa-save"></i> Update User
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="card-footer">
+                    <div class="accordion" id="userPreferencesAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="userPreferencesHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#userPreferencesCollapse" aria-expanded="false" aria-controls="userPreferencesCollapse">
+                                    <i class="fas fa-cog me-2"></i> User Preferences
+                                </button>
+                            </h2>
+                            <div id="userPreferencesCollapse" class="accordion-collapse collapse" aria-labelledby="userPreferencesHeading" data-bs-parent="#userPreferencesAccordion">
+                                <div class="accordion-body">
+                                    <form method="POST" action="{{ url_for('admin_routes.update_user_preferences', user_id=user.id) }}">
+                                        <div class="mb-3">
+                                            <label for="preferred_data_provider" class="form-label">Preferred API Source</label>
+                                            <select class="form-select" id="preferred_data_provider" name="preferred_data_provider">
+                                                {% for provider in available_providers %}
+                                                <option value="{{ provider }}" {% if user_preferences and user_preferences.preferred_data_provider == provider %}selected{% endif %}>{{ provider }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="default_company" class="form-label">Default Company</label>
+                                            <select class="form-select" id="default_company" name="default_company">
+                                                {% for company in available_companies %}
+                                                <option value="{{ company }}" {% if user_preferences and user_preferences.default_company == company %}selected{% endif %}>{{ company }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="default_timeframe" class="form-label">Default Timeframe</label>
+                                            <select class="form-select" id="default_timeframe" name="default_timeframe">
+                                                {% for timeframe in available_timeframes %}
+                                                <option value="{{ timeframe }}" {% if user_preferences and user_preferences.default_timeframe == timeframe %}selected{% endif %}>{{ timeframe }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="default_prediction_count" class="form-label">Default Candlestick Count for Prediction</label>
+                                            <input type="number" class="form-control" id="default_prediction_count" name="default_prediction_count" value="{{ user_preferences.default_prediction_count if user_preferences else 10 }}" min="1" max="100">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="default_model" class="form-label">Default ML Model</label>
+                                            <select class="form-select" id="default_model" name="default_model">
+                                                {% for model in available_models %}
+                                                <option value="{{ model }}" {% if user_preferences and user_preferences.default_model == model %}selected{% endif %}>{{ model }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-save"></i> Update Preferences
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Password validation
+    document.getElementById('confirm_password').addEventListener('input', function() {
+        const password = document.getElementById('password').value;
+        const confirmPassword = this.value;
+        const updateButton = document.getElementById('update-user-btn');
+        
+        if (password && password !== confirmPassword) {
+            this.setCustomValidity('Passwords do not match');
+            updateButton.disabled = true;
+        } else {
+            this.setCustomValidity('');
+            updateButton.disabled = false;
+        }
+    });
+    
+    document.getElementById('password').addEventListener('input', function() {
+        const confirmPassword = document.getElementById('confirm_password');
+        if (confirmPassword.value) {
+            confirmPassword.dispatchEvent(new Event('input'));
+        }
+    });
+</script>
+{% endblock %}

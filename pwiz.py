@@ -1,4 +1,4 @@
-#!/Users/aakashchangra/NEW_CANDLES/venv/bin/python
+#!/usr/bin/env python
 
 import datetime
 import os
