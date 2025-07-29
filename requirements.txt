@@ -1,0 +1,115 @@
+# Core web framework
+Flask>=2.3.3
+Flask-SQLAlchemy>=3.0.5
+Flask-Login>=0.6.3
+Werkzeug>=2.3.7
+
+# Data manipulation and analysis
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.11.3
+
+# Machine learning and deep learning
+scikit-learn>=1.3.0
+
+# Technical analysis
+TA-Lib>=0.4.28
+yfinance>=0.2.22
+
+# Data visualization
+matplotlib>=3.7.2
+seaborn>=0.12.2
+plotly>=5.17.0
+
+# API requests and data fetching
+requests>=2.31.0
+aiohttp>=3.8.6
+
+# Database
+SQLAlchemy>=2.0.21
+
+# Data preprocessing and feature engineering
+joblib>=1.3.2
+
+# Configuration and environment
+python-dotenv>=1.0.0
+
+# Async support
+asyncio>=3.4.3
+
+# Date and time handling
+python-dateutil>=2.8.2
+
+# JSON handling
+orjson>=3.9.7
+
+# Logging
+loguru>=0.7.2
+
+# Testing
+pytest>=7.4.2
+pytest-flask>=1.2.0
+
+# Development tools
+flake8>=6.1.0
+black>=23.9.1
+
+# Additional utilities
+tqdm>=4.66.1
+click>=8.1.7
+
+# Security
+cryptography>=41.0.4
+PyJWT>=2.8.0
+
+# Excel export support
+openpyxl>=3.1.2
+xlsxwriter>=3.1.9
+
+# PDF export support
+reportlab>=4.0.4
+
+# Redis (optional for caching)
+redis>=5.0.0
+
+# WebSocket support
+Flask-SocketIO>=5.3.6
+python-socketio>=5.9.0
+
+# Background task processing
+celery>=5.0.5
+
+# System utilities
+psutil>=5.9.6
+
+# Data validation
+cerberus>=1.3.5
+
+# API rate limiting
+Flask-Limiter>=3.5.0
+
+# CORS support
+Flask-CORS>=4.0.0
+
+# Parallel processing
+pathos>=0.3.1
+
+# Core ML dependencies
+sympy>=1.12
+statsmodels>=0.14.0
+xgboost>=1.7.6
+lightgbm>=4.1.0
+feature-engine>=1.6.2
+shap>=0.42.1
+optuna>=3.4.0
+
+# Utilities
+dill>=0.3.7
+rich>=13.6.0
+hydra-core>=1.3.2
+prometheus-client>=0.17.1
+
+# Development and monitoring
+great-expectations>=0.17.23
+multiprocessing-logging>=0.3.4
+memory-profiler>=0.61.0
